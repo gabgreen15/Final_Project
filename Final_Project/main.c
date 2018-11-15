@@ -24,6 +24,7 @@ void commandWrite(uint8_t command);
 void dataWrite(uint8_t data);
 
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
+volatile char current_day_status = A;
 
 
 
@@ -280,6 +281,13 @@ void Timer_32_Init(void)
  */
 void T32_INT1_IRQHandler(void)
 {
-
+    if(current_day_status=='A')
+    {
+        current_day_status = 'P';
+    }
+    else
+    {
+        current_day_status = 'A';
+    }
     TIMER32_1 -> INTCLR = 0;
 }
