@@ -33,6 +33,7 @@ volatile char current_day_status = 'A';
 
 
 
+
 void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
@@ -92,6 +93,7 @@ void LCD_CurrentTime(void)
      */
     current_minute = 5062500000 - TIMER32_1 -> VALUE;
     current_minute = (current_minute/703125);
+
     if(current_minute<10)
     {
 
@@ -150,6 +152,14 @@ void LCD_CurrentTime(void)
     }
 
     }
+
+    /*
+     * Print AM or PM
+     */
+        commandWrite(0x87+j);
+        dataWrite(current_day_status);
+        dataWrite('M');
+
 }
 
 /*
