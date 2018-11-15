@@ -78,7 +78,7 @@ void LCD_CurrentTime(void)
     commandWrite(0x87);
     for(i = 0; i < 2; i++)
     {
-        dataWrite(hour_current[i]);
+        dataWrite(hour_current[i]); //print
         dataWrite(0b00111010);
     }
 }
