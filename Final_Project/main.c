@@ -59,6 +59,7 @@ void LCD_CurrentTime(void)
     int i;
     char hour_current[2];
     char minute_current[2];
+    char minute_current_small[1];
     char second_current[2];
 
     /*
@@ -87,16 +88,34 @@ void LCD_CurrentTime(void)
      * Print current minute
      */
     current_minute = 5062500000 - TIMER32_1 -> VALUE;
-    current_minute = (current_minute/703125) + 1;
+    current_minute = (current_minute/703125);
+    if(current_minute<10)
+    {
+
+    sprintf(minute_current_small,"%d",current_minute);
+    delay_ms(100);
+    commandWrite(0x84);
+    dataWrite('0');
+    for(i=0;i<1;i++)
+    {
+        dataWrite(minute_current_small[i]);
+    }
+        dataWrite(0b00111010);
+
+    }
+    else
+    {
     sprintf(minute_current,"%d",current_minute);
+
     delay_ms(100);
     commandWrite(0x84);
     for(i = 0; i < 2; i++)
     {
-        dataWrite(hour_current[i]);
-        dataWrite(0b00111010);
-    }
+        dataWrite(minute_current[i]);
 
+    }
+    dataWrite(0b00111010);
+    }
     /*
      * Print current second
      */
