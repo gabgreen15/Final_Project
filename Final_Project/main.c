@@ -11,6 +11,9 @@ void Initialize_Pins(void);
 void delay_micro(unsigned microsec);
 void delay_ms(unsigned ms);
 
+void Timer_32_Init(void);
+void T32_INT1_IRQHandler(void);
+
 void Initialize_LCD(void);
 void PulseEnablePin(void);
 void pushNibble(uint8_t nibble);
@@ -23,6 +26,7 @@ void main(void)
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
 	Initialize_Pins();
 	Initialize_LCD();
+	Timer_32_Init()
 
 }
 
@@ -198,4 +202,27 @@ void delay_ms(unsigned ms)
     SysTick->VAL = 0;
 
     while((SysTick->CTRL & 0x00010000) == 0); //Bit 16 means complete
+}
+/*
+ * void Timer_32_Init(void)
+ *
+ * The purpose of this function is to initialize Timer 32
+ */
+void Timer_32_Init(void)
+{
+    TIMER32_1 -> CONTROL = 0b11101011; //Enabled, periodic mode, interrupt enabled, 256 divider, 32 bit, one-shot
+    TIMER32_1 -> LOAD = 5062500000-1; //12 hours
+    TIMER32_1 -> INTCLR = 0;
+    NVIC_EnableIRQ(T32_INT1_IRQn);
+}
+/*
+ * void T32_INT1_IRQHandler(void)
+ *
+ * The purpose of this function is the interrupt handler
+ * for Timer 32
+ */
+void T32_INT1_IRQHandler(void)
+{
+
+    TIMER32_1 -> INTCLR = 0;
 }
