@@ -1,4 +1,5 @@
 #include "msp.h"
+#include <stdio.h>
 
 
 /**
@@ -18,6 +19,12 @@ void pushByte(uint8_t byte);
 void commandWrite(uint8_t command);
 void dataWrite(uint8_t data);
 
+volatile int current_second = 0, current_minute = 0, current_hour = 0;
+
+
+
+
+
 void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
@@ -26,6 +33,55 @@ void main(void)
 
 }
 
+/*
+ * void LCD_CurrentTime
+ *
+ * The purpose of this function is to print the current
+ * time to the LCD
+ */
+void LCD_CurrentTime(void)
+{
+    int i;
+    char hour_current[2];
+    char minute_current[2];
+    char second_current[2];
+
+    /*
+     * Print Current Hour
+     */
+    sprintf(hour_current,"%d",current_hour);
+    delay_ms(100);
+    commandWrite(0x80);
+    for(i = 0; i < 2; i++)
+    {
+        dataWrite(hour_current[i]);
+        dataWrite(0b00111010);
+    }
+
+    /*
+     * Print current minute
+     */
+    sprintf(minute_current,"%d",current_minute);
+    delay_ms(100);
+    commandWrite(0x84);
+    for(i = 0; i < 2; i++)
+    {
+        dataWrite(hour_current[i]);
+        dataWrite(0b00111010);
+    }
+
+    /*
+     * Print current second
+     */
+    sprintf(second_current,"%d",current_second);
+    delay_ms(100);
+    commandWrite(0x87);
+    for(i = 0; i < 2; i++)
+    {
+        dataWrite(hour_current[i]);
+        dataWrite(0b00111010);
+    }
+}
 
 /*
  * void Initialize_Pins(void)
