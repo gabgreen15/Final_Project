@@ -209,6 +209,9 @@ void Initialize_LCD(void)
     commandWrite(6);
     delay_ms(10);
 
+    commandWrite(0x0C);
+    delay_ms(10);
+
 }
 /*
  * void PulseEnablePin(void)
