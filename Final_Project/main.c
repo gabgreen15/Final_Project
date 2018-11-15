@@ -12,6 +12,7 @@ void Initialize_Pins(void);
 
 void delay_micro(unsigned microsec);
 void delay_ms(unsigned ms);
+void SysTick_Init();
 
 void Timer_32_Init(void);
 void T32_INT1_IRQHandler(void);
@@ -23,8 +24,10 @@ void pushByte(uint8_t byte);
 void commandWrite(uint8_t command);
 void dataWrite(uint8_t data);
 
+void LCD_CurrentTime(void);
+
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
-volatile char current_day_status = A;
+volatile char current_day_status = 'A';
 
 
 
@@ -34,8 +37,14 @@ void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
 	Initialize_Pins();
+	SysTick_Init();
 	Initialize_LCD();
-	Timer_32_Init()
+	Timer_32_Init();
+
+	while(1)
+	{
+	    LCD_CurrentTime();
+	}
 
 }
 
@@ -55,18 +64,30 @@ void LCD_CurrentTime(void)
     /*
      * Print Current Hour
      */
+    current_hour = 5062500000 - TIMER32_1 -> VALUE;
+    current_hour = (current_hour/42187500) + 1;
+    printf("%d", current_hour);
     sprintf(hour_current,"%d",current_hour);
     delay_ms(100);
     commandWrite(0x80);
+    if(current_hour > 10)
+    {
     for(i = 0; i < 2; i++)
     {
         dataWrite(hour_current[i]);
-        dataWrite(0b00111010);
     }
+    }
+    else
+    {
+        dataWrite(hour_current[0]);
+    }
+    dataWrite(0b00111010);
 
     /*
      * Print current minute
      */
+    current_minute = 5062500000 - TIMER32_1 -> VALUE;
+    current_minute = (current_minute/703125) + 1;
     sprintf(minute_current,"%d",current_minute);
     delay_ms(100);
     commandWrite(0x84);
@@ -79,6 +100,8 @@ void LCD_CurrentTime(void)
     /*
      * Print current second
      */
+    current_second = 5062500000 - TIMER32_1 -> VALUE;
+    current_second = (current_second/11719) + 1;
     sprintf(second_current,"%d",current_second);
     delay_ms(100);
     commandWrite(0x87);
@@ -269,7 +292,7 @@ void delay_ms(unsigned ms)
 void Timer_32_Init(void)
 {
     TIMER32_1 -> CONTROL = 0b11101011; //Enabled, periodic mode, interrupt enabled, 256 divider, 32 bit, one-shot
-    TIMER32_1 -> LOAD = 5062500000-1; //12 hours
+    TIMER32_1 -> LOAD = 5062500000; //12 hours
     TIMER32_1 -> INTCLR = 0;
     NVIC_EnableIRQ(T32_INT1_IRQn);
 }
@@ -290,4 +313,11 @@ void T32_INT1_IRQHandler(void)
         current_day_status = 'A';
     }
     TIMER32_1 -> INTCLR = 0;
+}
+void SysTick_Init()
+{
+    SysTick->CTRL=0x00; //counter off
+    SysTick->VAL=0x00; //decimal 3000 (1 ms)
+    SysTick->LOAD=0x00; //Resets the counter
+    SysTick->CTRL=0x05; //turns counter on
 }
