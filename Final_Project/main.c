@@ -34,6 +34,7 @@ volatile char current_day_status = 'A';
 
 
 
+
 void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
@@ -58,9 +59,12 @@ void main(void)
 void LCD_CurrentTime(void)
 {
     int i;
+    int j=0;
     char hour_current[2];
     char minute_current[2];
+    char minute_current_small[1];
     char second_current[2];
+    char second_current_small[1];
 
     /*
      * Print Current Hour
@@ -77,6 +81,7 @@ void LCD_CurrentTime(void)
     {
         dataWrite(hour_current[i]);
     }
+        j = 1;
     }
     else
     {
@@ -88,10 +93,28 @@ void LCD_CurrentTime(void)
      * Print current minute
      */
     current_minute = 5062500000 - TIMER32_1 -> VALUE;
-    current_minute = (current_minute/703125) + 1;
-    sprintf(minute_current,"%d",current_minute);
+    current_minute = (current_minute/703125);
+
+    if(current_minute<10)
+    {
+
+    sprintf(minute_current_small,"%d",current_minute);
     delay_ms(100);
-    commandWrite(0x84);
+    commandWrite(0x82+j);
+    dataWrite('0');
+    for(i=0;i<1;i++)
+    {
+        dataWrite(minute_current_small[i]);
+    }
+        dataWrite(0b00111010);
+
+    }
+    else
+    {
+    sprintf(minute_current,"%d",current_minute);
+
+    delay_ms(100);
+    commandWrite(0x82+j);
     for(i = 0; i < 2; i++)
     {
         dataWrite(minute_current[i]);
@@ -102,9 +125,25 @@ void LCD_CurrentTime(void)
      */
     current_second = 5062500000 - TIMER32_1 -> VALUE;
     current_second = (current_second/11719) + 1;
-    sprintf(second_current,"%d",current_second);
-    delay_ms(100);
-    commandWrite(0x87);
+
+    if(current_second<10)
+    {
+        sprintf(second_current_small,"%d",current_second);
+            delay_ms(100);
+            commandWrite(0x85+j);
+            dataWrite('0');
+            for(i=0;i<1;i++)
+            {
+                dataWrite(second_current_small[i]);
+            }
+
+    }
+    else
+    {
+        sprintf(second_current,"%d",current_second);
+
+        delay_ms(100);
+        commandWrite(0x85+j);
     for(i = 0; i < 2; i++)
     {
         dataWrite(second_current[i]); //print
@@ -167,6 +206,9 @@ void Initialize_LCD(void)
     commandWrite(1);
     delay_ms(100);
     commandWrite(6);
+    delay_ms(10);
+
+    commandWrite(0x0C);
     delay_ms(10);
 
 }
