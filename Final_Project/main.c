@@ -29,7 +29,15 @@ void LCD_CurrentTime(void);
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
 volatile char current_day_status = 'A';
 
+int j=0;
+int k=1;
+int l=1;
+int n=1;
 
+int num;
+int sec;
+int num1;
+int sec1;
 
 
 
@@ -58,7 +66,7 @@ void main(void)
 void LCD_CurrentTime(void)
 {
     int i;
-    int j=0;
+
     char hour_current[2];
     char minute_current[2];
     char minute_current_small[1];
@@ -68,7 +76,6 @@ void LCD_CurrentTime(void)
     /*
      * Print Current Hour
      */
-    current_hour = 5062500000 - TIMER32_1 -> VALUE;
     current_hour = (current_hour/42187500) + 1;
     printf("%d", current_hour);
     sprintf(hour_current,"%d",current_hour);
@@ -92,41 +99,67 @@ void LCD_CurrentTime(void)
      * Print current minute
      */
     current_minute = 5062500000 - TIMER32_1 -> VALUE;
-    current_minute = (current_minute/703125);
-
-    if(current_minute<10)
+    if(current_minute <= 703125*l)
     {
+        if(l>=60)
+        {
+            num1 = l/60;
+            sec1 = l%(60*num1);
+            current_second = sec1;
+        }
+        else
+        {
+            current_minute = (l-1);
+        }
+                if(current_minute<10)
+                {
+            sprintf(minute_current_small,"%d",current_minute);
+            delay_ms(100);
+            commandWrite(0x82+j);
+            dataWrite('0');
+            for(i=0;i<1;i++)
+            {
+                dataWrite(minute_current_small[i]);
+            }
+                dataWrite(0b00111010);
 
-    sprintf(minute_current_small,"%d",current_minute);
-    delay_ms(100);
-    commandWrite(0x82+j);
-    dataWrite('0');
-    for(i=0;i<1;i++)
-    {
-        dataWrite(minute_current_small[i]);
-    }
-        dataWrite(0b00111010);
+            }
+            else
+            {
+            sprintf(minute_current,"%d",current_minute);
 
+            delay_ms(100);
+            commandWrite(0x82+j);
+            for(i = 0; i < 2; i++)
+            {
+                dataWrite(minute_current[i]);
+
+            }
+            dataWrite(0b00111010);
+            }
     }
     else
     {
-    sprintf(minute_current,"%d",current_minute);
-
-    delay_ms(100);
-    commandWrite(0x82+j);
-    for(i = 0; i < 2; i++)
-    {
-        dataWrite(minute_current[i]);
-
+        l++;
     }
-    dataWrite(0b00111010);
-    }
+
     /*
      * Print current second
      */
     current_second = 5062500000 - TIMER32_1 -> VALUE;
-    current_second = (current_second/11719) + 1;
 
+    if(current_second<=11719*n)
+    {
+        if(n>=60)
+        {
+            num = n/60;
+            sec = n%(60*num);
+            current_second = sec;
+        }
+        else
+        {
+            current_second = (n-1);
+        }
     if(current_second<10)
     {
         sprintf(second_current_small,"%d",current_second);
@@ -152,6 +185,11 @@ void LCD_CurrentTime(void)
     }
 
     }
+    }
+    else
+    {
+        n++;
+    }
 
     /*
      * Print AM or PM
@@ -159,6 +197,7 @@ void LCD_CurrentTime(void)
         commandWrite(0x87+j);
         dataWrite(current_day_status);
         dataWrite('M');
+
 
 }
 
