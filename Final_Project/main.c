@@ -6,6 +6,7 @@
  * Jenna Stolzman and Gabrielle Green
  * Final Project..
  *
+ * New Comment
  */
 
 void Initialize_Pins(void);
@@ -93,10 +94,9 @@ void LCD_CurrentTime(void)
     commandWrite(0x84);
     for(i = 0; i < 2; i++)
     {
-        dataWrite(hour_current[i]);
-        dataWrite(0b00111010);
+        dataWrite(minute_current[i]);
     }
-
+    dataWrite(0b00111010);
     /*
      * Print current second
      */
@@ -107,9 +107,9 @@ void LCD_CurrentTime(void)
     commandWrite(0x87);
     for(i = 0; i < 2; i++)
     {
-        dataWrite(hour_current[i]); //print
-        dataWrite(0b00111010);
+        dataWrite(second_current[i]); //print
     }
+    dataWrite(0b00111010);
 }
 
 /*
