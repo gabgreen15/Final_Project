@@ -141,23 +141,10 @@ void LCD_CurrentTime(void)
     }
     else
     {
-<<<<<<< HEAD
+
         l++;
-=======
-    sprintf(minute_current,"%d",current_minute);
-
-    delay_ms(100);
-    commandWrite(0x82+j);
-    for(i = 0; i < 2; i++)
-    {
-        dataWrite(minute_current[i]);
->>>>>>> branch 'master' of https://github.com/gabgreen15/Final_Project.git
     }
-<<<<<<< HEAD
 
-=======
-    dataWrite(0b00111010);
->>>>>>> branch 'master' of https://github.com/gabgreen15/Final_Project.git
     /*
      * Print current second
      */
@@ -197,7 +184,7 @@ void LCD_CurrentTime(void)
     {
         dataWrite(second_current[i]); //print
     }
-<<<<<<< HEAD
+
 
     }
     }
@@ -212,11 +199,6 @@ void LCD_CurrentTime(void)
         commandWrite(0x87+j);
         dataWrite(current_day_status);
         dataWrite('M');
-
-
-=======
-    dataWrite(0b00111010);
->>>>>>> branch 'master' of https://github.com/gabgreen15/Final_Project.git
 }
 
 /*
