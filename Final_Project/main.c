@@ -28,12 +28,11 @@ void dataWrite(uint8_t data);
 void LCD_CurrentTime(void);
 
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
+volatile int flag;
 volatile char current_day_status = 'A';
 
-
-
-
-
+void SetupPort5Interrupts();
+void Port5_IRQHandler(void);
 
 void main(void)
 {
@@ -48,6 +47,66 @@ void main(void)
 	    LCD_CurrentTime();
 	}
 
+}
+
+void Port5_IRQHandler(void)
+{
+    int status = P5 -> IFG;
+    P5 -> IFG = 0;
+    if(status & BIT1)
+    {
+        if(flag == 1)
+        {
+            State = Set_Time;
+            flag = 0;
+        }
+    }
+    if(status & BIT0)
+    {
+
+    }
+}
+void SetupPort5Interrupts()
+{
+
+    /*
+     * Set Time Button
+     */
+    P5->SEL0 &= ~BIT1;                              // Setup the P5.1 on the Launchpad as Input, Pull Up Resistor
+    P5->SEL1 &= ~BIT1;
+    P5->DIR &= ~BIT1;
+    P5->REN |= BIT1;
+    P5->OUT |= BIT1;
+
+    P5->IES |= BIT1;                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
+    P5->IE |= BIT1;                                 //Set interrupt on for P5.1
+
+    /*
+     * Set Alarm Button
+     */
+    P5->SEL0 &= ~BIT0;                              // Setup the P5.0 on the Launchpad as Input, Pull Up Resistor
+    P5->SEL1 &= ~BIT0;
+    P5->DIR &= ~BIT0;
+    P5->REN |= BIT0;
+    P5->OUT |= BIT0;
+
+    P5->IES |= BIT0;                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
+    P5->IE |= BIT0;                                 //Set interrupt on for P5.0
+
+    /*
+     * On/Off/Up Button
+     */
+    P5->SEL0 &= ~BIT2;                              // Setup the P1.1 on the Launchpad as Input, Pull Up Resistor
+    P5->SEL1 &= ~BIT2;
+    P5->DIR &= ~BIT2;
+    P5->REN |= BIT2;
+    P5->OUT |= BIT2;
+
+    P5->IES |= BIT2;                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
+    P5->IE |= BIT2;
+
+    P5->IFG = 0;                                    //Clear all interrupt flags
+    NVIC_EnableIRQ(PORT5_IRQn);                     //Enable Port 1 interrupts.  Look at msp.h if you want to see what all these are called.
 }
 
 /*
