@@ -28,13 +28,16 @@ void dataWrite(uint8_t data);
 void LCD_CurrentTime(void);
 
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
-volatile int flag;
+volatile int flag=0;
 volatile char current_day_status = 'A';
 
-<<<<<<< HEAD
+
 void SetupPort5Interrupts();
-void Port5_IRQHandler(void);
-=======
+void PORT5_IRQHandler(void);
+
+void Set_Time(void);
+int flag_up=0;
+
 int j=0;
 int k=1;
 int l=1;
@@ -45,17 +48,23 @@ int sec;
 int num1;
 int sec1;
 
+char hour_current[2];
 
 
->>>>>>> branch 'master' of https://github.com/gabgreen15/Final_Project.git
+
 
 void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
+    __disable_irq();
+    SetupPort5Interrupts();
+    __enable_interrupt();
+
 	Initialize_Pins();
 	SysTick_Init();
 	Initialize_LCD();
 	Timer_32_Init();
+
 
 	while(1)
 	{
@@ -64,21 +73,43 @@ void main(void)
 
 }
 
-void Port5_IRQHandler(void)
+void Set_Time()
+{
+    int i, j;
+   // if(flag_up==1)
+   // {
+ //   while(flag_up==0){};
+        current_hour++;
+        sprintf(hour_current,"%d",current_hour);
+        delay_ms(100);
+        commandWrite(0x80);
+        if(current_hour > 10)
+        {
+        for(i = 0; i < 2; i++)
+        {
+            dataWrite(hour_current[i]);
+        }
+            j = 1;
+        }
+        else
+        {
+            dataWrite(hour_current[0]);
+        }
+        dataWrite(0b00111010);
+  //  }
+}
+
+void PORT5_IRQHandler(void)
 {
     int status = P5 -> IFG;
     P5 -> IFG = 0;
     if(status & BIT1)
     {
-        if(flag == 1)
-        {
-            State = Set_Time;
-            flag = 0;
-        }
+            Set_Time();
     }
     if(status & BIT0)
     {
-
+        flag_up = 1;
     }
 }
 void SetupPort5Interrupts()
@@ -134,7 +165,7 @@ void LCD_CurrentTime(void)
 {
     int i;
 
-    char hour_current[2];
+
     char minute_current[2];
     char minute_current_small[1];
     char second_current[2];
