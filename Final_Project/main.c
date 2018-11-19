@@ -9,7 +9,7 @@
  * New Comment
  */
 
-enum states{HOURS,MINUTES,SECONDS}
+enum states{HOURS,MINUTES,SECONDS};
 void Initialize_Pins(void);
 
 void delay_micro(unsigned microsec);
@@ -73,130 +73,244 @@ void main(void)
 	Initialize_LCD();
 	Timer_32_Init();
 
+	int i;
+
 	while(1)
 	{
 	    LCD_CurrentTime();
+
+	    enum states state = HOURS;
+
+	   while(flag_check_hms)
+	   {
+	       if(flag_check_hms == 1)
+	       {
+	           state = HOURS;
+	       }
+	       if(flag_check_hms == 2)
+	       {
+	           state = MINUTES;
+	       }
+	       if(flag_check_hms == 3)
+	       {
+	           state = SECONDS;
+	       }
+	    switch (state)
+	    {
+
+	    case HOURS:
+	        if(flag_up == 1)
+	        {
+	            current_hour++;
+	            sprintf(hour_current,"%d",current_hour);
+	            delay_ms(100);
+	            commandWrite(0x80);
+	            if(current_hour > 10)
+	            {
+	            for(i = 0; i < 2; i++)
+	            {
+	                dataWrite(hour_current[i]);
+	            }
+	                j = 1;
+	            }
+	            else
+	            {
+	                dataWrite(hour_current[0]);
+	            }
+	            dataWrite(0b00111010);
+	            flag_up = 0;
+	        }
+	        break;
+	    case MINUTES:
+	        if(flag_up == 1)
+	        {
+	            current_minute++;
+	            if(current_minute<10)
+	                {
+	                    sprintf(minute_current_small,"%d",current_minute);
+	                    delay_ms(100);
+	                    commandWrite(0x82+j);
+	                    dataWrite('0');
+	                    for(i=0;i<1;i++)
+	                    {
+	                        dataWrite(minute_current_small[i]);
+	                    }
+	                    dataWrite(0b00111010);
+
+	                }
+	        else
+	        {
+	            sprintf(minute_current,"%d",current_minute);
+	            delay_ms(100);
+	            commandWrite(0x82+j);
+	        for(i = 0; i < 2; i++)
+	            {
+	            dataWrite(minute_current[i]);
+
+	            }
+	        dataWrite(0b00111010);
+	        }
+	            flag_up = 0;
+	        }
+	        break;
+
+	    case SECONDS:
+	        if(flag_up == 1)
+	        {
+	            current_second++;
+	        if(current_second<10)
+	        {
+	            sprintf(second_current_small,"%d",current_second);
+	                delay_ms(100);
+	                commandWrite(0x85+j);
+	                dataWrite('0');
+	                for(i=0;i<1;i++)
+	                {
+	                    dataWrite(second_current_small[i]);
+	                }
+
+	        }
+	        else
+	        {
+	            sprintf(second_current,"%d",current_second);
+
+	            delay_ms(100);
+	            commandWrite(0x85+j);
+	        for(i = 0; i < 2; i++)
+	        {
+	            dataWrite(second_current[i]); //print
+	        }
+
+	        }
+	        flag_up = 0;
+	        }
+	        break;
+	    }
+
+	   }
 	}
 
 }
 
 
-void Set_Time()
-{
-    int i, j;
-   // if(flag_up==1)
-   // {
- //   while(flag_up==0){};
-
-   while(1)
-   {
-       if(flag_check_hms == 1)
-       {
-           state = HOURS;
-       }
-       if(flag_check_hms == 2)
-       {
-           state = MINUTES;
-       }
-       if(flag_check_hms == 3)
-       {
-           state = SECONDS;
-       }
-    switch (state)
-    {
-
-    case HOURS:
-        if(flag_up == 1)
-        {
-            current_hour++;
-            sprintf(hour_current,"%d",current_hour);
-            delay_ms(100);
-            commandWrite(0x80);
-            if(current_hour > 10)
-            {
-            for(i = 0; i < 2; i++)
-            {
-                dataWrite(hour_current[i]);
-            }
-                j = 1;
-            }
-            else
-            {
-                dataWrite(hour_current[0]);
-            }
-            dataWrite(0b00111010);
-            flag_up = 0;
-        }
-        break;
-    case MINUTES:
-        if(flag_up == 1)
-        {
-            current_minute++;
-            if(current_minute<10)
-                {
-                    sprintf(minute_current_small,"%d",current_minute);
-                    delay_ms(100);
-                    commandWrite(0x82+j);
-                    dataWrite('0');
-                    for(i=0;i<1;i++)
-                    {
-                        dataWrite(minute_current_small[i]);
-                    }
-                    dataWrite(0b00111010);
-
-                }
-        else
-        {
-            sprintf(minute_current,"%d",current_minute);
-            delay_ms(100);
-            commandWrite(0x82+j);
-        for(i = 0; i < 2; i++)
-            {
-            dataWrite(minute_current[i]);
-
-            }
-        dataWrite(0b00111010);
-        }
-            flag_up = 0;
-        }
-        break;
-
-    case SECONDS:
-        if(flag_up == 1)
-        {
-            current_second++;
-        if(current_second<10)
-        {
-            sprintf(second_current_small,"%d",current_second);
-                delay_ms(100);
-                commandWrite(0x85+j);
-                dataWrite('0');
-                for(i=0;i<1;i++)
-                {
-                    dataWrite(second_current_small[i]);
-                }
-
-        }
-        else
-        {
-            sprintf(second_current,"%d",current_second);
-
-            delay_ms(100);
-            commandWrite(0x85+j);
-        for(i = 0; i < 2; i++)
-        {
-            dataWrite(second_current[i]); //print
-        }
-
-        }
-        flag_up = 0;
-        }
-        break;
-    }
-
-   }
-  //  }
-}
+//void Set_Time()
+//{
+//    int i, j;
+//   // if(flag_up==1)
+//   // {
+// //   while(flag_up==0){};
+//
+//    enum states state = HOURS;
+//
+//   while(1)
+//   {
+//       if(flag_check_hms == 1)
+//       {
+//           state = HOURS;
+//       }
+//       if(flag_check_hms == 2)
+//       {
+//           state = MINUTES;
+//       }
+//       if(flag_check_hms == 3)
+//       {
+//           state = SECONDS;
+//       }
+//    switch (state)
+//    {
+//
+//    case HOURS:
+//        if(flag_up == 1)
+//        {
+//            current_hour++;
+//            sprintf(hour_current,"%d",current_hour);
+//            delay_ms(100);
+//            commandWrite(0x80);
+//            if(current_hour > 10)
+//            {
+//            for(i = 0; i < 2; i++)
+//            {
+//                dataWrite(hour_current[i]);
+//            }
+//                j = 1;
+//            }
+//            else
+//            {
+//                dataWrite(hour_current[0]);
+//            }
+//            dataWrite(0b00111010);
+//            flag_up = 0;
+//        }
+//        break;
+//    case MINUTES:
+//        if(flag_up == 1)
+//        {
+//            current_minute++;
+//            if(current_minute<10)
+//                {
+//                    sprintf(minute_current_small,"%d",current_minute);
+//                    delay_ms(100);
+//                    commandWrite(0x82+j);
+//                    dataWrite('0');
+//                    for(i=0;i<1;i++)
+//                    {
+//                        dataWrite(minute_current_small[i]);
+//                    }
+//                    dataWrite(0b00111010);
+//
+//                }
+//        else
+//        {
+//            sprintf(minute_current,"%d",current_minute);
+//            delay_ms(100);
+//            commandWrite(0x82+j);
+//        for(i = 0; i < 2; i++)
+//            {
+//            dataWrite(minute_current[i]);
+//
+//            }
+//        dataWrite(0b00111010);
+//        }
+//            flag_up = 0;
+//        }
+//        break;
+//
+//    case SECONDS:
+//        if(flag_up == 1)
+//        {
+//            current_second++;
+//        if(current_second<10)
+//        {
+//            sprintf(second_current_small,"%d",current_second);
+//                delay_ms(100);
+//                commandWrite(0x85+j);
+//                dataWrite('0');
+//                for(i=0;i<1;i++)
+//                {
+//                    dataWrite(second_current_small[i]);
+//                }
+//
+//        }
+//        else
+//        {
+//            sprintf(second_current,"%d",current_second);
+//
+//            delay_ms(100);
+//            commandWrite(0x85+j);
+//        for(i = 0; i < 2; i++)
+//        {
+//            dataWrite(second_current[i]); //print
+//        }
+//
+//        }
+//        flag_up = 0;
+//        }
+//        break;
+//    }
+//
+//   }
+//  //  }
+//}
 
 
 
@@ -207,8 +321,16 @@ void PORT5_IRQHandler(void)
     P5 -> IFG = 0;
     if(status & BIT1)
     {
-        flag_check_hms++;
-        Set_Time();
+
+        if(flag_check_hms == 3)
+        {
+            flag_check_hms = 0;
+        }
+        else
+        {
+            flag_check_hms++;
+
+        }
 
     }
     if(status & BIT0)
