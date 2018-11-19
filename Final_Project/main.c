@@ -9,6 +9,7 @@
  * New Comment
  */
 
+
 void Initialize_Pins(void);
 
 void delay_micro(unsigned microsec);
@@ -28,13 +29,15 @@ void dataWrite(uint8_t data);
 void LCD_CurrentTime(void);
 
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
-volatile int flag;
+volatile int flag,flag_up;
 volatile char current_day_status = 'A';
 
-<<<<<<< HEAD
+
 void SetupPort5Interrupts();
 void Port5_IRQHandler(void);
-=======
+
+void Set_Time(void);
+
 int j=0;
 int k=1;
 int l=1;
@@ -46,22 +49,44 @@ int num1;
 int sec1;
 
 
-
->>>>>>> branch 'master' of https://github.com/gabgreen15/Final_Project.git
-
 void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
+	__disable_irq();
 	Initialize_Pins();
 	SysTick_Init();
+	SetupPort5Interrupts();
 	Initialize_LCD();
 	Timer_32_Init();
-
+    __enable_interrupt();
 	while(1)
 	{
 	    LCD_CurrentTime();
 	}
 
+}
+
+void Set_Time(void)
+{
+    int i,j;
+    if(flag_up == 1)
+    {
+        current_hour++;
+        sprintf(hour_current,"%d",current_hour);
+        if(current_hour > 10)
+        {
+        for(i = 0; i < 2; i++)
+        {
+            dataWrite(hour_current[i]);
+        }
+            j = 1;
+        }
+        else
+        {
+            dataWrite(hour_current[0]);
+        }
+        dataWrite(0b00111010);
+    }
 }
 
 void Port5_IRQHandler(void)
@@ -72,14 +97,15 @@ void Port5_IRQHandler(void)
     {
         if(flag == 1)
         {
-            State = Set_Time;
+            Set_Time();
             flag = 0;
         }
     }
     if(status & BIT0)
     {
-
+        flag_up = 1;
     }
+
 }
 void SetupPort5Interrupts()
 {
@@ -97,19 +123,18 @@ void SetupPort5Interrupts()
     P5->IE |= BIT1;                                 //Set interrupt on for P5.1
 
     /*
-     * Set Alarm Button
+     * Set On/Off/Up Button
      */
     P5->SEL0 &= ~BIT0;                              // Setup the P5.0 on the Launchpad as Input, Pull Up Resistor
     P5->SEL1 &= ~BIT0;
     P5->DIR &= ~BIT0;
     P5->REN |= BIT0;
     P5->OUT |= BIT0;
-
     P5->IES |= BIT0;                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
     P5->IE |= BIT0;                                 //Set interrupt on for P5.0
 
     /*
-     * On/Off/Up Button
+     * Set Alarm Button
      */
     P5->SEL0 &= ~BIT2;                              // Setup the P1.1 on the Launchpad as Input, Pull Up Resistor
     P5->SEL1 &= ~BIT2;
