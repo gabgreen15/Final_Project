@@ -9,6 +9,7 @@
  * New Comment
  */
 
+
 void Initialize_Pins(void);
 
 void delay_micro(unsigned microsec);
@@ -28,15 +29,18 @@ void dataWrite(uint8_t data);
 void LCD_CurrentTime(void);
 
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
-volatile int flag=0;
+
+volatile int flag,flag_up=0;
+
 volatile char current_day_status = 'A';
 
 
 void SetupPort5Interrupts();
+
 void PORT5_IRQHandler(void);
 
 void Set_Time(void);
-int flag_up=0;
+
 
 int j=0;
 int k=1;
@@ -51,20 +55,19 @@ int sec1;
 char hour_current[2];
 
 
-
-
 void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
+
     __disable_irq();
     SetupPort5Interrupts();
     __enable_interrupt();
 
 	Initialize_Pins();
 	SysTick_Init();
+
 	Initialize_LCD();
 	Timer_32_Init();
-
 
 	while(1)
 	{
@@ -72,6 +75,7 @@ void main(void)
 	}
 
 }
+
 
 void Set_Time()
 {
@@ -99,18 +103,23 @@ void Set_Time()
   //  }
 }
 
+
+
 void PORT5_IRQHandler(void)
+
 {
     int status = P5 -> IFG;
     P5 -> IFG = 0;
     if(status & BIT1)
     {
             Set_Time();
+
     }
     if(status & BIT0)
     {
         flag_up = 1;
     }
+
 }
 void SetupPort5Interrupts()
 {
@@ -128,19 +137,18 @@ void SetupPort5Interrupts()
     P5->IE |= BIT1;                                 //Set interrupt on for P5.1
 
     /*
-     * Set Alarm Button
+     * Set On/Off/Up Button
      */
     P5->SEL0 &= ~BIT0;                              // Setup the P5.0 on the Launchpad as Input, Pull Up Resistor
     P5->SEL1 &= ~BIT0;
     P5->DIR &= ~BIT0;
     P5->REN |= BIT0;
     P5->OUT |= BIT0;
-
     P5->IES |= BIT0;                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
     P5->IE |= BIT0;                                 //Set interrupt on for P5.0
 
     /*
-     * On/Off/Up Button
+     * Set Alarm Button
      */
     P5->SEL0 &= ~BIT2;                              // Setup the P1.1 on the Launchpad as Input, Pull Up Resistor
     P5->SEL1 &= ~BIT2;
