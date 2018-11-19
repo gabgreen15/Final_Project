@@ -9,7 +9,7 @@
  * New Comment
  */
 
-
+enum states{HOURS,MINUTES,SECONDS}
 void Initialize_Pins(void);
 
 void delay_micro(unsigned microsec);
@@ -30,7 +30,8 @@ void LCD_CurrentTime(void);
 
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
 
-volatile int flag,flag_up=0;
+volatile int flag,flag_up=0,flag_check_hms = 0;
+
 
 volatile char current_day_status = 'A';
 
@@ -53,7 +54,10 @@ int num1;
 int sec1;
 
 char hour_current[2];
-
+char minute_current[2];
+char second_current[2];
+char minute_current_small[1];
+char second_current_small[1];
 
 void main(void)
 {
@@ -83,23 +87,114 @@ void Set_Time()
    // if(flag_up==1)
    // {
  //   while(flag_up==0){};
-        current_hour++;
-        sprintf(hour_current,"%d",current_hour);
-        delay_ms(100);
-        commandWrite(0x80);
-        if(current_hour > 10)
+
+   while(1)
+   {
+       if(flag_check_hms == 1)
+       {
+           state = HOURS;
+       }
+       if(flag_check_hms == 2)
+       {
+           state = MINUTES;
+       }
+       if(flag_check_hms == 3)
+       {
+           state = SECONDS;
+       }
+    switch (state)
+    {
+
+    case HOURS:
+        if(flag_up == 1)
         {
-        for(i = 0; i < 2; i++)
-        {
-            dataWrite(hour_current[i]);
+            current_hour++;
+            sprintf(hour_current,"%d",current_hour);
+            delay_ms(100);
+            commandWrite(0x80);
+            if(current_hour > 10)
+            {
+            for(i = 0; i < 2; i++)
+            {
+                dataWrite(hour_current[i]);
+            }
+                j = 1;
+            }
+            else
+            {
+                dataWrite(hour_current[0]);
+            }
+            dataWrite(0b00111010);
+            flag_up = 0;
         }
-            j = 1;
+        break;
+    case MINUTES:
+        if(flag_up == 1)
+        {
+            current_minute++;
+            if(current_minute<10)
+                {
+                    sprintf(minute_current_small,"%d",current_minute);
+                    delay_ms(100);
+                    commandWrite(0x82+j);
+                    dataWrite('0');
+                    for(i=0;i<1;i++)
+                    {
+                        dataWrite(minute_current_small[i]);
+                    }
+                    dataWrite(0b00111010);
+
+                }
+        else
+        {
+            sprintf(minute_current,"%d",current_minute);
+            delay_ms(100);
+            commandWrite(0x82+j);
+        for(i = 0; i < 2; i++)
+            {
+            dataWrite(minute_current[i]);
+
+            }
+        dataWrite(0b00111010);
+        }
+            flag_up = 0;
+        }
+        break;
+
+    case SECONDS:
+        if(flag_up == 1)
+        {
+            current_second++;
+        if(current_second<10)
+        {
+            sprintf(second_current_small,"%d",current_second);
+                delay_ms(100);
+                commandWrite(0x85+j);
+                dataWrite('0');
+                for(i=0;i<1;i++)
+                {
+                    dataWrite(second_current_small[i]);
+                }
+
         }
         else
         {
-            dataWrite(hour_current[0]);
+            sprintf(second_current,"%d",current_second);
+
+            delay_ms(100);
+            commandWrite(0x85+j);
+        for(i = 0; i < 2; i++)
+        {
+            dataWrite(second_current[i]); //print
         }
-        dataWrite(0b00111010);
+
+        }
+        flag_up = 0;
+        }
+        break;
+    }
+
+   }
   //  }
 }
 
@@ -112,7 +207,8 @@ void PORT5_IRQHandler(void)
     P5 -> IFG = 0;
     if(status & BIT1)
     {
-            Set_Time();
+        flag_check_hms++;
+        Set_Time();
 
     }
     if(status & BIT0)
@@ -174,10 +270,8 @@ void LCD_CurrentTime(void)
     int i;
 
 
-    char minute_current[2];
-    char minute_current_small[1];
-    char second_current[2];
-    char second_current_small[1];
+
+
 
     /*
      * Print Current Hour
