@@ -1,15 +1,14 @@
 #include "msp.h"
 #include <stdio.h>
-//test 5
 
 /**
  * Jenna Stolzman and Gabrielle Green
  * Final Project..
  *
- * New Comment
+ *
  */
 
-enum states{HOURS,MINUTES,SECONDS};
+enum states{HOURS,MINUTES,SECONDS,HOURS_ALARM,MINUTES_ALARM,SECONDS_ALARM};
 void Initialize_Pins(void);
 
 void delay_micro(unsigned microsec);
@@ -30,7 +29,7 @@ void LCD_CurrentTime(void);
 
 volatile int current_second = 0, current_minute = 0, current_hour = 0;
 
-volatile int flag,flag_up=0,flag_check_hms = 0;
+volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0;
 
 
 volatile char current_day_status = 'A';
@@ -39,6 +38,7 @@ volatile char current_day_status = 'A';
 void SetupPort5Interrupts();
 
 void PORT5_IRQHandler(void);
+void SetupPort3Interrups(void);
 
 void Set_Time(void);
 
@@ -65,6 +65,7 @@ void main(void)
 
     __disable_irq();
     SetupPort5Interrupts();
+    SetupPort3Interrups();
     __enable_interrupt();
 
 	Initialize_Pins();
@@ -77,11 +78,11 @@ void main(void)
 
 	while(1)
 	{
-	    LCD_CurrentTime();
+	   LCD_CurrentTime();
 
 	   enum states state = HOURS;
 
-	   while(flag_check_hms)
+	   while(flag_check_hms || flag_check_hms_alarm)
 	   {
 	       if(flag_check_hms == 1)
 	       {
@@ -94,6 +95,18 @@ void main(void)
 	       if(flag_check_hms == 3)
 	       {
 	           state = SECONDS;
+	       }
+	       if(flag_check_hms_alarm == 1)
+	       {
+	           state = HOURS_ALARM;
+	       }
+	       if(flag_check_hms_alarm == 2)
+	       {
+	           state = MINUTES_ALARM;
+	       }
+	       if(flag_check_hms_alarm == 3)
+	       {
+	           state = SECONDS_ALARM;
 	       }
 	    switch (state)
 	    {
@@ -188,15 +201,100 @@ void main(void)
 	        }
 	        TIMER32_1 -> VALUE = (TIMER32_1 -> VALUE + (562500000 - (current_second*11719)));
 	        break;
-	    }
 
+	    case HOURS_ALARM:
+	        if(flag_up == 1)
+	        {
+	            current_hour++;
+                sprintf(hour_current,"%d",current_hour);
+                delay_ms(100);
+                commandWrite(0xC0);
+                if(current_hour > 10)
+                {
+                for(i = 0; i < 2; i++)
+                {
+                    dataWrite(hour_current[i]);
+                }
+                    j = 1;
+                }
+                else
+                {
+                    dataWrite(hour_current[0]);
+                }
+                dataWrite(0b00111010);
+                flag_up = 0;
+	        }
+	        break;
+
+	    case MINUTES_ALARM:
+	        if(flag_up == 1)
+	        {
+                current_minute++;
+                if(current_minute<10)
+                    {
+                        sprintf(minute_current_small,"%d",current_minute);
+                        delay_ms(100);
+                        commandWrite(0xC2+j);
+                        dataWrite('0');
+                        for(i=0;i<1;i++)
+                        {
+                            dataWrite(minute_current_small[i]);
+                        }
+                        dataWrite(0b00111010);
+                    }
+            else
+            {
+                sprintf(minute_current,"%d",current_minute);
+                delay_ms(100);
+                commandWrite(0xC2+j);
+            for(i = 0; i < 2; i++)
+                {
+                    dataWrite(minute_current[i]);
+                }
+            dataWrite(0b00111010);
+            }
+                flag_up = 0;
+            }
+            break;
+
+	    case SECONDS_ALARM:
+            if(flag_up == 1)
+            {
+               current_second++;
+            if(current_second<10)
+            {
+                sprintf(second_current_small,"%d",current_second);
+                    delay_ms(100);
+                    commandWrite(0xC5+j);
+                    dataWrite('0');
+                    for(i=0;i<1;i++)
+                    {
+                        dataWrite(second_current_small[i]);
+                    }
+
+            }
+            else
+            {
+                sprintf(second_current,"%d",current_second);
+
+                delay_ms(100);
+                commandWrite(0xC5+j);
+            for(i = 0; i < 2; i++)
+            {
+                dataWrite(second_current[i]); //print
+            }
+
+            }
+            flag_up = 0;
+            }
+            break;
+	        }
+	    }
 	   }
 	}
-
 }
 
 void PORT5_IRQHandler(void)
-
 {
     int status = P5 -> IFG;
     P5 -> IFG = 0;
@@ -210,15 +308,23 @@ void PORT5_IRQHandler(void)
         else
         {
             flag_check_hms++;
-
         }
-
+    }
+    if(status & BIT2)
+    {
+        if(flag_check_hms_alarm == 3)
+        {
+            flag_check_hms_alarm = 0;
+        }
+        else
+        {
+            flag_check_hms_alarm++;
+        }
     }
     if(status & BIT0)
     {
         flag_up = 1;
     }
-
 }
 void SetupPort5Interrupts()
 {
@@ -249,7 +355,7 @@ void SetupPort5Interrupts()
     /*
      * Set Alarm Button
      */
-    P5->SEL0 &= ~BIT2;                              // Setup the P1.1 on the Launchpad as Input, Pull Up Resistor
+    P5->SEL0 &= ~BIT2;                              // Setup the P5.2 on the Launchpad as Input, Pull Up Resistor
     P5->SEL1 &= ~BIT2;
     P5->DIR &= ~BIT2;
     P5->REN |= BIT2;
@@ -259,7 +365,35 @@ void SetupPort5Interrupts()
     P5->IE |= BIT2;
 
     P5->IFG = 0;                                    //Clear all interrupt flags
-    NVIC_EnableIRQ(PORT5_IRQn);                     //Enable Port 1 interrupts.  Look at msp.h if you want to see what all these are called.
+    NVIC_EnableIRQ(PORT5_IRQn);                     //Enable Port 5 interrupts.  Look at msp.h if you want to see what all these are called.
+}
+
+void SetupPort3Interrupts()
+{
+    /*
+     * Set Snooze/Down Button
+     */
+    P3->SEL0 &= ~BIT0;                              // Setup the P3.0 on the Launchpad as Input, Pull Up Resistor
+    P3->SEL1 &= ~BIT0;
+    P3->DIR &= ~BIT0;
+    P3->REN |= BIT0;
+    P3->OUT |= BIT0;
+    P3->IES |= BIT0;                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
+    P3->IE |= BIT0;                                 //Set interrupt on for P3.0
+
+    P3->IFG = 0;                                    //Clear all interrupt flags
+    NVIC_EnableIRQ(PORT3_IRQn);                     //Enable Port 3 interrupts.  Look at msp.h if you want to see what all these are called.
+}
+
+void PORT3_IRQHandler(void)
+{
+    int status = P3 -> IFG;
+    P3 -> IFG = 0;
+
+    if(status & BIT0)
+    {
+        flag_down = 1;
+    }
 }
 
 /*
