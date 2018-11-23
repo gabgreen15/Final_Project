@@ -364,7 +364,7 @@ void SetupPort5Interrupts()
     P5->IES |= BIT2;                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
     P5->IE |= BIT2;
 
-    P5->IFG = 0;                                    //Clear all interrupt flags
+    P5->IFG = 0;                                    //Clear all interrupt flag
     NVIC_EnableIRQ(PORT5_IRQn);                     //Enable Port 5 interrupts.  Look at msp.h if you want to see what all these are called.
 }
 
