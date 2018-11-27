@@ -13,10 +13,8 @@ void Initialize_Pins(void);
 
 void delay_micro(unsigned microsec);
 void delay_ms(unsigned ms);
-void SysTick_Init();
+void SysTickInit(void);
 
-void Timer_32_Init(void);
-void T32_INT1_IRQHandler(void);
 
 void Initialize_LCD(void);
 void PulseEnablePin(void);
@@ -25,9 +23,6 @@ void pushByte(uint8_t byte);
 void commandWrite(uint8_t command);
 void dataWrite(uint8_t data);
 
-void LCD_CurrentTime(void);
-
-volatile int current_second = 0, current_minute = 0, current_hour = 0;
 
 volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0;
 
@@ -35,29 +30,36 @@ volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_al
 volatile char current_day_status = 'A';
 
 
-void SetupPort5Interrupts();
+void SetupPort5Interrupts(void);
 
 void PORT5_IRQHandler(void);
-void SetupPort3Interrups(void);
+void SetupPort3Interrupts(void);
 
-void Set_Time(void);
+void configRTC(void);
+void printRTC(void);
+void month(char* monthStr, uint8_t mon_num);
+void dow(char* dowStr, uint8_t day_num);
 
+void hour(char* hourStr, uint8_t hour_num);
+void min(char* minStr, uint8_t min_num);
+void sec(char* secStr, uint8_t sec_num);
 
-int j=0;
-int k=1;
-int l=1;
-int n=1;
+uint8_t hr1 = 12, min1 = 30, sec1 = 0;
 
-int num;
-int sec;
-int num1;
-int sec1;
+// global struct variable called now
+struct
+{
+    uint8_t sec;
+    uint8_t min;
+    uint8_t hour;
+    uint8_t day;
+    uint8_t mon;
+    uint16_t year;
+    uint8_t dow;
+} now;
 
-char hour_current[2];
-char minute_current[2];
-char second_current[2];
-char minute_current_small[1];
-char second_current_small[1];
+uint8_t RTC_flag = 0, RTC_alarm;
+
 
 void main(void)
 {
@@ -65,20 +67,30 @@ void main(void)
 
     __disable_irq();
     SetupPort5Interrupts();
-    SetupPort3Interrups();
+    SetupPort3Interrupts();
+
+    configRTC();
+    NVIC_EnableIRQ(RTC_C_IRQn);
+
     __enable_interrupt();
 
 	Initialize_Pins();
-	SysTick_Init();
+	SysTickInit();
 
 	Initialize_LCD();
-	Timer_32_Init();
 
-	int i;
-
-	while(1)
-	{
-	   LCD_CurrentTime();
+    while(1)
+    {
+        if(RTC_flag)
+        {
+            printRTC();
+            RTC_flag = 0;
+        }
+        if(RTC_alarm)
+        {
+            printf("ALARM\n");
+            RTC_alarm = 0;
+        }
 
 	   enum states state = HOURS;
 
@@ -114,114 +126,37 @@ void main(void)
 	    case HOURS:
 	        if(flag_up == 1)
 	        {
-	            current_hour++;
-	            sprintf(hour_current,"%d",current_hour);
-	            delay_ms(100);
-	            commandWrite(0x80);
-	            if(current_hour > 10)
-	            {
-	            for(i = 0; i < 2; i++)
-	            {
-	                dataWrite(hour_current[i]);
-	            }
-	                j = 1;
-	            }
-	            else
-	            {
-	                dataWrite(hour_current[0]);
-	            }
-	            dataWrite(0b00111010);
-	            TIMER32_1 -> VALUE = 5062500000 - (current_hour*4218750);
-	            flag_up = 0;
+	            hr1 = hr1 + 0b1;
+	            configRTC();
+	            printRTC();
 	        }
+	            flag_up = 0;
+
 	        break;
 	    case MINUTES:
 	        if(flag_up == 1)
 	        {
-	            current_minute++;
-	            if(current_minute<10)
-	                {
-	                    sprintf(minute_current_small,"%d",current_minute);
-	                    delay_ms(100);
-	                    commandWrite(0x82+j);
-	                    dataWrite('0');
-	                    for(i=0;i<1;i++)
-	                    {
-	                        dataWrite(minute_current_small[i]);
-	                    }
-	                    dataWrite(0b00111010);
-
-	                }
+	        }
 	        else
 	        {
-	            sprintf(minute_current,"%d",current_minute);
-	            delay_ms(100);
-	            commandWrite(0x82+j);
-	        for(i = 0; i < 2; i++)
-	            {
-	            dataWrite(minute_current[i]);
-
-	            }
-	        dataWrite(0b00111010);
-	        }
 	            flag_up = 0;
 	        }
-	        TIMER32_1 -> VALUE = (TIMER32_1 -> VALUE +(562500000 - (current_minute*703125)));
 	        break;
 
 	    case SECONDS:
 	        if(flag_up == 1)
-	        {
-	            current_second++;
-	        if(current_second<10)
-	        {
-	            sprintf(second_current_small,"%d",current_second);
-	                delay_ms(100);
-	                commandWrite(0x85+j);
-	                dataWrite('0');
-	                for(i=0;i<1;i++)
-	                {
-	                    dataWrite(second_current_small[i]);
-	                }
 
-	        }
-	        else
 	        {
-	            sprintf(second_current,"%d",current_second);
-
-	            delay_ms(100);
-	            commandWrite(0x85+j);
-	        for(i = 0; i < 2; i++)
-	        {
-	            dataWrite(second_current[i]); //print
-	        }
-
-	        }
 	        flag_up = 0;
 	        }
-	        TIMER32_1 -> VALUE = (TIMER32_1 -> VALUE + (562500000 - (current_second*11719)));
 	        break;
 
 	    case HOURS_ALARM:
 	        if(flag_up == 1)
 	        {
-	            current_hour++;
-                sprintf(hour_current,"%d",current_hour);
-                delay_ms(100);
-                commandWrite(0xC0);
-                if(current_hour > 10)
-                {
-                for(i = 0; i < 2; i++)
-                {
-                    dataWrite(hour_current[i]);
-                }
-                    j = 1;
-                }
+            }
                 else
                 {
-                    dataWrite(hour_current[0]);
-                }
-                dataWrite(0b00111010);
                 flag_up = 0;
 	        }
 	        break;
@@ -229,30 +164,9 @@ void main(void)
 	    case MINUTES_ALARM:
 	        if(flag_up == 1)
 	        {
-                current_minute++;
-                if(current_minute<10)
-                    {
-                        sprintf(minute_current_small,"%d",current_minute);
-                        delay_ms(100);
-                        commandWrite(0xC2+j);
-                        dataWrite('0');
-                        for(i=0;i<1;i++)
-                        {
-                            dataWrite(minute_current_small[i]);
-                        }
-                        dataWrite(0b00111010);
-                    }
+	        }
             else
             {
-                sprintf(minute_current,"%d",current_minute);
-                delay_ms(100);
-                commandWrite(0xC2+j);
-            for(i = 0; i < 2; i++)
-                {
-                    dataWrite(minute_current[i]);
-                }
-            dataWrite(0b00111010);
-            }
                 flag_up = 0;
             }
             break;
@@ -260,31 +174,9 @@ void main(void)
 	    case SECONDS_ALARM:
             if(flag_up == 1)
             {
-               current_second++;
-            if(current_second<10)
-            {
-                sprintf(second_current_small,"%d",current_second);
-                    delay_ms(100);
-                    commandWrite(0xC5+j);
-                    dataWrite('0');
-                    for(i=0;i<1;i++)
-                    {
-                        dataWrite(second_current_small[i]);
-                    }
-
             }
             else
             {
-                sprintf(second_current,"%d",current_second);
-
-                delay_ms(100);
-                commandWrite(0xC5+j);
-            for(i = 0; i < 2; i++)
-            {
-                dataWrite(second_current[i]); //print
-            }
-
-            }
             flag_up = 0;
             }
             break;
@@ -292,7 +184,8 @@ void main(void)
 	    }
 	   }
 	}
-}
+
+
 
 void PORT5_IRQHandler(void)
 {
@@ -394,143 +287,6 @@ void PORT3_IRQHandler(void)
     {
         flag_down = 1;
     }
-}
-
-/*
- * void LCD_CurrentTime
- *
- * The purpose of this function is to print the current
- * time to the LCD
- */
-void LCD_CurrentTime(void)
-{
-    int i;
-    /*
-     * Print Current Hour
-     */
-    current_hour = 5062500000 - TIMER32_1 -> VALUE;
-    current_hour = (current_hour/42187500) +1;
-    printf("%d", current_hour);
-    sprintf(hour_current,"%d",current_hour);
-    delay_ms(100);
-    commandWrite(0x80);
-    if(current_hour > 10)
-    {
-    for(i = 0; i < 2; i++)
-    {
-        dataWrite(hour_current[i]);
-    }
-        j = 1;
-    }
-    else
-    {
-        dataWrite(hour_current[0]);
-    }
-    dataWrite(0b00111010);
-
-    /*
-     * Print current minute
-     */
-    current_minute = 5062500000 - TIMER32_1 -> VALUE;
-    if(current_minute <= 703125*l)
-    {
-        if(l>=60)
-        {
-            num1 = l/60;
-            sec1 = l%(60*num1);
-            current_second = sec1;
-        }
-        else
-        {
-            current_minute = (l-1);
-        }
-                if(current_minute<10)
-                {
-            sprintf(minute_current_small,"%d",current_minute);
-            delay_ms(100);
-            commandWrite(0x82+j);
-            dataWrite('0');
-            for(i=0;i<1;i++)
-            {
-                dataWrite(minute_current_small[i]);
-            }
-                dataWrite(0b00111010);
-
-            }
-            else
-            {
-            sprintf(minute_current,"%d",current_minute);
-
-            delay_ms(100);
-            commandWrite(0x82+j);
-            for(i = 0; i < 2; i++)
-            {
-                dataWrite(minute_current[i]);
-
-            }
-            dataWrite(0b00111010);
-            }
-    }
-    else
-    {
-
-        l++;
-    }
-
-    /*
-     * Print current second
-     */
-    current_second = 5062500000 - TIMER32_1 -> VALUE;
-
-    if(current_second<=11719*n)
-    {
-        if(n>=60)
-        {
-            num = n/60;
-            sec = n%(60*num);
-            current_second = sec;
-        }
-        else
-        {
-            current_second = (n-1);
-        }
-    if(current_second<10)
-    {
-        sprintf(second_current_small,"%d",current_second);
-            delay_ms(100);
-            commandWrite(0x85+j);
-            dataWrite('0');
-            for(i=0;i<1;i++)
-            {
-                dataWrite(second_current_small[i]);
-            }
-
-    }
-    else
-    {
-        sprintf(second_current,"%d",current_second);
-
-        delay_ms(100);
-        commandWrite(0x85+j);
-    for(i = 0; i < 2; i++)
-    {
-        dataWrite(second_current[i]); //print
-    }
-
-
-    }
-    }
-    else
-    {
-        n++;
-    }
-
-    /*
-     * Print AM or PM
-     */
-        commandWrite(0x87+j);
-        dataWrite(current_day_status);
-        dataWrite('M');
 }
 
 /*
@@ -708,40 +464,122 @@ void delay_ms(unsigned ms)
 
     while((SysTick->CTRL & 0x00010000) == 0); //Bit 16 means complete
 }
-/*
- * void Timer_32_Init(void)
- *
- * The purpose of this function is to initialize Timer 32
- */
-void Timer_32_Init(void)
+
+void configRTC(void)
 {
-    TIMER32_1 -> CONTROL = 0b11101011; //Enabled, periodic mode, interrupt enabled, 256 divider, 32 bit, one-shot
-    TIMER32_1 -> LOAD = 5062500000; //12 hours
-    TIMER32_1 -> INTCLR = 0;
-    NVIC_EnableIRQ(T32_INT1_IRQn);
+    RTC_C->CTL0     =   0xA500;     //Write Code, IE on RTC Ready
+    RTC_C->CTL13    =   0x0000;
+    RTC_C->TIM0     = min1<<8 | sec1;
+    RTC_C->TIM1     = 2<<8 | hr1;
+    RTC_C->DATE     = 11<<8 | 26;
+    RTC_C->YEAR     = 2018;
+    RTC_C->PS1CTL   = 0b11010;
+
+    RTC_C->AMINHR   = 12<<8 | 31 | BIT(15) | BIT(7);
+    RTC_C->ADOWDAY = 0;
+    RTC_C->CTL0     = ((0xA500) | BIT5);
+
 }
-/*
- * void T32_INT1_IRQHandler(void)
- *
- * The purpose of this function is the interrupt handler
- * for Timer 32
- */
-void T32_INT1_IRQHandler(void)
+
+void printRTC(void)
 {
-    if(current_day_status=='A')
+
+    int i;
+    int j=0;
+
+    char hourStr[2];
+    char minStr[2];
+    char secStr[2];
+
+    sprintf(hourStr, "%d", now.hour);
+    sprintf(minStr, "%d", now.min);
+    sprintf(secStr, "%d", now.sec);
+
+    commandWrite(0x80);
+
+    if(now.hour>10)
     {
-        current_day_status = 'P';
+    for(i=0;i<2;i++)
+    {
+        dataWrite(hourStr[i]);
+    }
+        j=1;
     }
     else
     {
+        dataWrite(hourStr[0]);
+    }
+    dataWrite(0b00111010);
+
+    commandWrite(0x82+j);
+    if(now.min<10)
+    {
+        dataWrite('0');
+        dataWrite(minStr[0]);
+        dataWrite(0b00111010);
+    }
+    else
+    {
+        for(i=0;i<2;i++)
+        {
+            dataWrite(minStr[i]);
+        }
+        dataWrite(0b00111010);
+    }
+
+    commandWrite(0x85+j);
+    if(now.sec<10)
+    {
+        dataWrite('0');
+        dataWrite(secStr[0]);
+    }
+    else
+    {
+        for(i=0;i<2;i++)
+        {
+            dataWrite(secStr[i]);
+        }
+    }
+    commandWrite(0x87+j);
+    if(now.hour < 12)
+    {
         current_day_status = 'A';
     }
-    TIMER32_1 -> INTCLR = 0;
+    else
+    {
+        current_day_status = 'P';
+    }
+    dataWrite(current_day_status);
+    dataWrite('M');
+ //   printf("%02d:%02d:%02d %s %d %s %4d\n",now.hour, now.min, now.sec, dowStr, now.day, monthStr, now.year);
+
 }
-void SysTick_Init()
+
+void RTC_C_IRQHandler(void)
 {
-    SysTick->CTRL=0x00; //counter off
-    SysTick->VAL=0x00; //decimal 3000 (1 ms)
-    SysTick->LOAD=0x00; //Resets the counter
-    SysTick->CTRL=0x05; //turns counter on
+    if(RTC_C->CTL0 & BIT1) {
+        RTC_alarm = 1;
+        RTC_C->CTL0 = 0xA500;
+    }
+    if(RTC_C->PS1CTL & BIT0) {
+        now.sec         =   RTC_C->TIM0>>0 & 0x00FF;
+        now.min         =   RTC_C->TIM0>>8 & 0x00FF;
+        now.hour        =   RTC_C->TIM1>>0 & 0x00FF;
+        now.dow         =   RTC_C->TIM1>>8 & 0x00FF;
+        now.day         =   RTC_C->DATE>>0 & 0x00FF;
+        now.mon         =   RTC_C->DATE>>8 & 0x00FF;
+        now.year        =   RTC_C->YEAR;
+        RTC_flag = 1;
+        RTC_C->PS1CTL &= ~BIT0;
+    }
+
 }
+
+void SysTickInit(void)
+{
+    SysTick->CTRL       =   0;
+    SysTick->LOAD       =   0;        //Set interval for interrupt to occur at
+    SysTick->VAL        =   0;                          //Reset value to zero
+    SysTick->CTRL       =   0b101;                      //Set CLK, Set IE, Set Run
+}
+
