@@ -37,6 +37,7 @@ void SetupPort3Interrupts(void);
 
 void configRTC(void);
 void printRTC(void);
+void printAlarm(void);
 void month(char* monthStr, uint8_t mon_num);
 void dow(char* dowStr, uint8_t day_num);
 
@@ -45,6 +46,7 @@ void min(char* minStr, uint8_t min_num);
 void sec(char* secStr, uint8_t sec_num);
 
 uint8_t hr1 = 12, min1 = 30, sec1 = 0;
+uint8_t hr_alarm = 0, min_alarm = 0;
 
 // global struct variable called now
 struct
@@ -52,10 +54,6 @@ struct
     uint8_t sec;
     uint8_t min;
     uint8_t hour;
-    uint8_t day;
-    uint8_t mon;
-    uint16_t year;
-    uint8_t dow;
 } now;
 
 uint8_t RTC_flag = 0, RTC_alarm;
@@ -129,63 +127,116 @@ void main(void)
 	            hr1 = hr1 + 0b1;
 	            configRTC();
 	            printRTC();
+                flag_up = 0;
 	        }
-	            flag_up = 0;
-
+	        if(flag_down == 1)
+	        {
+                hr1 = hr1 - 0b1;
+                configRTC();
+                printRTC();
+                flag_down = 0;
+	        }
 	        break;
 	    case MINUTES:
 	        if(flag_up == 1)
 	        {
+	            min1 = min1 + 0b1;
+	            configRTC();
+	            printRTC();
+                flag_up = 0;
 	        }
-	        else
-	        {
-	            flag_up = 0;
-	        }
-	        break;
 
+	        if(flag_down == 1)
+	        {
+	             min1 = min1 - 0b1;
+	             configRTC();
+	             printRTC();
+	             flag_down = 0;
+	         }
+	        break;
 	    case SECONDS:
 	        if(flag_up == 1)
-
 	        {
-	        flag_up = 0;
+	            sec1 = sec1 + 0b1;
+                configRTC();
+                printRTC();
+                flag_up = 0;
 	        }
+            if(flag_down == 1)
+            {
+                sec1 = sec1 - 0b1;
+                configRTC();
+                printRTC();
+                flag_down = 0;
+             }
 	        break;
 
 	    case HOURS_ALARM:
 	        if(flag_up == 1)
 	        {
+	            hr_alarm = hr_alarm + 0b1;
+	            configRTC();
+	            printAlarm();
+	            flag_up = 0;
             }
-                else
-                {
-                flag_up = 0;
-	        }
 	        break;
 
 	    case MINUTES_ALARM:
 	        if(flag_up == 1)
 	        {
-	        }
-            else
-            {
+                min_alarm = min_alarm + 0b1;
+                configRTC();
+                printAlarm();
                 flag_up = 0;
-            }
-            break;
-
-	    case SECONDS_ALARM:
-            if(flag_up == 1)
-            {
-            }
-            else
-            {
-            flag_up = 0;
-            }
+	        }
             break;
 	        }
 	    }
 	   }
-	}
+}
+
+void printAlarm(void)
+{
+    char minute_alarm[2];
+    char hour_alarm[2];
+
+    int j= 0, i = 0;
+
+    sprintf(minute_alarm,"%d",min_alarm);
+    sprintf(hour_alarm,"%d",hour_alarm);
 
 
+
+    commandWrite(0xC0);
+    if(hour_alarm>10)
+    {
+    for(i=0;i<2;i++)
+    {
+        dataWrite(hour_alarm[i]);
+    }
+        j=1;
+    }
+    else
+    {
+        dataWrite(hour_alarm[0]);
+    }
+    dataWrite(0b00111010);
+
+    commandWrite(0xC2+j);
+    if(minute_alarm<10)
+    {
+        dataWrite('0');
+        dataWrite(minute_alarm[0]);
+    }
+    else
+    {
+        for(i=0;i<2;i++)
+        {
+            dataWrite(minute_alarm[i]);
+        }
+    }
+
+}
 
 void PORT5_IRQHandler(void)
 {
@@ -205,7 +256,7 @@ void PORT5_IRQHandler(void)
     }
     if(status & BIT2)
     {
-        if(flag_check_hms_alarm == 3)
+        if(flag_check_hms_alarm == 2)
         {
             flag_check_hms_alarm = 0;
         }
@@ -218,6 +269,7 @@ void PORT5_IRQHandler(void)
     {
         flag_up = 1;
     }
+
 }
 void SetupPort5Interrupts()
 {
@@ -475,7 +527,7 @@ void configRTC(void)
     RTC_C->YEAR     = 2018;
     RTC_C->PS1CTL   = 0b11010;
 
-    RTC_C->AMINHR   = 12<<8 | 31 | BIT(15) | BIT(7);
+    RTC_C->AMINHR   = hr_alarm | min_alarm | BIT(15) | BIT(7);
     RTC_C->ADOWDAY = 0;
     RTC_C->CTL0     = ((0xA500) | BIT5);
 
