@@ -39,6 +39,8 @@ void configRTC(void);
 void printRTC(void);
 void printAlarm(void);
 
+void printRTC_SetTime(void);
+
 int flag_time = 0;
 
 
@@ -124,15 +126,37 @@ void main(void)
 	        if(flag_up == 1)
 	        {
 	            hr1 = hr1 + 0b1;
+                if(hr1 == 12)
+                {
+                    if(flag_time ==0)
+                    {
+                        flag_time = 1;
+                    }
+                    else
+                    {
+                        flag_time = 0;
+                    }
+                }
 	            configRTC();
-	            printRTC();
+	            printRTC_SetTime();
                 flag_up = 0;
 	        }
 	        if(flag_down == 1)
 	        {
                 hr1 = hr1 - 0b1;
+                if(hr1 == 12)
+                {
+                    if(flag_time ==0)
+                    {
+                        flag_time = 1;
+                    }
+                    else
+                    {
+                        flag_time = 0;
+                    }
+                }
                 configRTC();
-                printRTC();
+                printRTC_SetTime();
                 flag_down = 0;
 	        }
 	        break;
@@ -141,7 +165,7 @@ void main(void)
 	        {
 	            min1 = min1 + 0b1;
 	            configRTC();
-	            printRTC();
+	            printRTC_SetTime();
                 flag_up = 0;
 	        }
 
@@ -149,7 +173,7 @@ void main(void)
 	        {
 	             min1 = min1 - 0b1;
 	             configRTC();
-	             printRTC();
+	             printRTC_SetTime();
 	             flag_down = 0;
 	         }
 	        break;
@@ -158,14 +182,14 @@ void main(void)
 	        {
 	            sec1 = sec1 + 0b1;
                 configRTC();
-                printRTC();
+                printRTC_SetTime();
                 flag_up = 0;
 	        }
             if(flag_down == 1)
             {
                 sec1 = sec1 - 0b1;
                 configRTC();
-                printRTC();
+                printRTC_SetTime();
                 flag_down = 0;
              }
 	        break;
@@ -174,6 +198,18 @@ void main(void)
 	        if(flag_up == 1)
 	        {
 	            hr_alarm = hr_alarm + 0b1;
+
+	            if(hr_alarm==12)
+	            {
+	                if(flag_time ==0)
+	                {
+	                    flag_time = 1;
+	                }
+	                else
+	                {
+	                    flag_time = 0;
+	                }
+	            }
 	            configRTC();
 	            printAlarm();
 	            flag_up = 0;
@@ -181,6 +217,18 @@ void main(void)
             if(flag_down == 1)
             {
                 hr_alarm = hr_alarm - 0b1;
+
+                if(hr_alarm==12)
+                {
+                    if(flag_time ==0)
+                    {
+                        flag_time = 1;
+                    }
+                    else
+                    {
+                        flag_time = 0;
+                    }
+                }
                  configRTC();
                  printRTC();
                  flag_down = 0;
@@ -218,12 +266,15 @@ void printAlarm(void)
     sprintf(minute_alarm,"%d",min_alarm);
     sprintf(hour_alarm,"%d",hr_alarm);
 
-        if(hr_alarm == 25)
-        {
-            hr_alarm = 0;
-            commandWrite(0xC6);
-            dataWrite(0b00100000);
-        }
+    if(hr_alarm > 12)
+    {
+        hr_alarm = hr_alarm - 0b1100; //12 in binary
+    }
+    if(min_alarm > 59)
+    {
+        min_alarm = min_alarm - 0b111100; //60 in binary
+    }
+
 
     commandWrite(0xC0);
     if(hr_alarm>=10)
@@ -236,6 +287,9 @@ void printAlarm(void)
     }
     else
     {
+        commandWrite(0xC6);
+        dataWrite(0b00100000);
+        commandWrite(0xC0);
         dataWrite(hour_alarm[0]);
     }
     dataWrite(0b00111010);
@@ -254,7 +308,7 @@ void printAlarm(void)
         }
     }
     commandWrite(0xC4+j);
-    if(hr_alarm < 12)
+    if(flag_time==0)
     {
         current_day_status = 'A';
     }
@@ -264,7 +318,6 @@ void printAlarm(void)
     }
     dataWrite(current_day_status);
     dataWrite('M');
-
 }
 
 void PORT5_IRQHandler(void)
@@ -576,11 +629,14 @@ void printRTC(void)
     if(now.hour > 12)
     {
         now.hour = now.hour - 0b1100; //12 in binary
-        flag_time = 1;
     }
-    else
+    if(now.min > 59)
     {
-        flag_time = 0;
+        now.min = now.min - 0b111100; //60 in binary
+    }
+    if(now.sec > 59)
+    {
+        now.sec = now.sec - 0b111100; //60 in binary
     }
 
     sprintf(hourStr, "%d", now.hour);
@@ -603,6 +659,7 @@ void printRTC(void)
     {
         commandWrite(0x89);
         dataWrite(0b00100000);
+        commandWrite(0x80);
         dataWrite(hourStr[0]);
     }
     dataWrite(0b00111010);
@@ -637,7 +694,7 @@ void printRTC(void)
         }
     }
     commandWrite(0x87+j);
-    if(flag_time)
+    if(flag_time==0)
     {
         current_day_status = 'A';
     }
@@ -651,6 +708,98 @@ void printRTC(void)
 
 }
 
+void printRTC_SetTime(void)
+{
+
+    int i;
+    int j=0;
+
+    char hourStr[2];
+    char minStr[2];
+    char secStr[2];
+
+
+    if(hr1 > 12)
+    {
+        hr1 = hr1 - 0b1100; //12 in binary
+    }
+    if(min1 > 59)
+    {
+        min1 = min1 - 0b111100; //60 in binary
+    }
+    if(sec1 > 59)
+    {
+        sec1 = sec1 - 0b111100; //60 in binary
+    }
+
+    sprintf(hourStr, "%d", hr1);
+    sprintf(minStr, "%d", min1);
+    sprintf(secStr, "%d", sec1);
+
+
+
+    commandWrite(0x80);
+
+    if(hr1>=10)
+    {
+    for(i=0;i<2;i++)
+    {
+        dataWrite(hourStr[i]);
+    }
+        j=1;
+    }
+    else
+    {
+        commandWrite(0x89);
+        dataWrite(0b00100000);
+        commandWrite(0x80);
+        dataWrite(hourStr[0]);
+    }
+    dataWrite(0b00111010);
+
+    commandWrite(0x82+j);
+    if(min1<10)
+    {
+        dataWrite('0');
+        dataWrite(minStr[0]);
+        dataWrite(0b00111010);
+    }
+    else
+    {
+        for(i=0;i<2;i++)
+        {
+            dataWrite(minStr[i]);
+        }
+        dataWrite(0b00111010);
+    }
+
+    commandWrite(0x85+j);
+    if(sec1<10)
+    {
+        dataWrite('0');
+        dataWrite(secStr[0]);
+    }
+    else
+    {
+        for(i=0;i<2;i++)
+        {
+            dataWrite(secStr[i]);
+        }
+    }
+    commandWrite(0x87+j);
+    if(flag_time == 0)
+    {
+        current_day_status = 'A';
+    }
+    else
+    {
+        current_day_status = 'P';
+    }
+    dataWrite(current_day_status);
+    dataWrite('M');
+ //   printf("%02d:%02d:%02d %s %d %s %4d\n",now.hour, now.min, now.sec, dowStr, now.day, monthStr, now.year);
+
+}
 void RTC_C_IRQHandler(void)
 {
     if(RTC_C->CTL0 & BIT1) {
