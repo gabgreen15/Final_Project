@@ -15,6 +15,8 @@ void delay_micro(unsigned microsec);
 void delay_ms(unsigned ms);
 void SysTickInit(void);
 
+void Timer_32_init();
+
 
 void Initialize_LCD(void);
 void PulseEnablePin(void);
@@ -73,6 +75,7 @@ void main(void)
 
 	Initialize_Pins();
 	SysTickInit();
+//	Timer_32_init();
 
 	Initialize_LCD();
 
@@ -123,6 +126,9 @@ void main(void)
 	    {
 
 	    case HOURS:
+//	        commandWrite(0x08);
+//	        delay_ms(1000);
+//	        commandWrite(0x0C);
 	        if(flag_up == 1)
 	        {
 	            hr1 = hr1 + 0b1;
@@ -230,7 +236,7 @@ void main(void)
                     }
                 }
                  configRTC();
-                 printRTC();
+                 printAlarm();
                  flag_down = 0;
              }
 	        break;
@@ -247,7 +253,7 @@ void main(void)
             {
                 min_alarm = min_alarm - 0b1;
                  configRTC();
-                 printRTC();
+                 printAlarm();
                  flag_down = 0;
              }
             break;
@@ -824,3 +830,22 @@ void SysTickInit(void)
     SysTick->CTRL       =   0b101;                      //Set CLK, Set IE, Set Run
 }
 
+//void Timer_32_init()
+//{
+//    TIMER32_1 -> CONTROL = 0xC2;
+//    TIMER32_1 -> LOAD = 30000000;
+//    TIMER32_1 -> INTCLR = 0;
+//    TIMER32_1 -> CONTROL |= 0x20;
+//    NVIC_EnableIRQ(T32_INT1_IRQn);
+//}
+//
+//void T32_INT1_IRQHandler()
+//{
+//
+//    if(flag_screensaver == 0)
+//    {
+//        flag_screensaver = 1;
+//    }
+//
+//    TIMER32_1 -> INTCLR = 0;
+//}
