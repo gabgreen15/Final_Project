@@ -27,13 +27,13 @@ void dataWrite(uint8_t data);
 
 
 volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0;
-
+volatile int flag_realtime=0,flag_faketime=0;
 
 volatile char current_day_status = 'A';
 
 
 void SetupPort5Interrupts(void);
-
+void SetupPort1Interrupts();
 void PORT5_IRQHandler(void);
 void SetupPort3Interrupts(void);
 
@@ -64,11 +64,13 @@ float nADC;
 float temp_C;
 float temp_F;
 
+char temp_Farenheit[5];
+
 void Print_Temp(void);
 void conversion(void);
 void SysTick_Handler(void);
 void ADC14init(void);
-#define ADC_CONVERSION_RATE 1500000   //3000*500ms = 2 per second or 1 every .5 seconds
+#define ADC_CONVERSION_RATE 30000  //3000*500ms = 2 per second or 1 every .5 seconds
 
 
 void main(void)
@@ -77,8 +79,9 @@ void main(void)
 
     __disable_irq();
     SetupPort5Interrupts();
+    SetupPort1Interrupts();
     SetupPort3Interrupts();
-    ADC14init();                                        // Start ADC to read from potentiometer
+//    ADC14init();                                        // Start ADC to read from potentiometer
     configRTC();
     NVIC_EnableIRQ(RTC_C_IRQn);
 
@@ -429,6 +432,21 @@ void SetupPort3Interrupts()
     NVIC_EnableIRQ(PORT3_IRQn);                     //Enable Port 3 interrupts.  Look at msp.h if you want to see what all these are called.
 }
 
+void SetupPort1Interrupts()
+{
+    P1->SEL0 &= ~(BIT1|BIT4);
+    P1->SEL1 &= ~(BIT1|BIT4);
+    P1->DIR &= ~(BIT1|BIT4);
+    P1->OUT |= (BIT1|BIT4);
+    P1->REN |= (BIT1|BIT4);
+    P1->IES |= (BIT1|BIT4);                                //Set pin interrupt to trigger when it goes from high to low (starts high due to pull up resistor)
+    P1->IE |= (BIT1|BIT4);                                 //Set interrupt on for P3.0
+
+    P1->IFG = 0;                                    //Clear all interrupt flags
+    NVIC_EnableIRQ(PORT1_IRQn);
+
+}
+
 void PORT3_IRQHandler(void)
 {
     int status = P3 -> IFG;
@@ -440,6 +458,29 @@ void PORT3_IRQHandler(void)
     }
 }
 
+
+void PORT1_IRQHandler(void)
+{
+    int status = P1 -> IFG;
+    P1 -> IFG = 0;
+
+    if(status & BIT1)
+    {
+        if(flag_faketime == 0)
+        {
+            flag_faketime = 1;
+        }
+        else
+        {
+            flag_faketime = 0;
+        }
+    }
+   /* if(status & BIT4)
+    {
+        flag_realtime = 1;
+        flag_faketime = 0;
+    }*/
+}
 /*
  * void Initialize_Pins(void)
  *
@@ -464,7 +505,13 @@ void Initialize_Pins(void)
     P2->SEL1 &= ~(BIT4 | BIT5); //set as Timer A
     P2->DIR |= (BIT4 | BIT5); //set as output
     P2->OUT &= ~(BIT4 | BIT5);
+
+
+
+
 }
+
+
 /*
  * void Initialize_LCD(void)
  *
@@ -624,7 +671,9 @@ void configRTC(void)
     RTC_C->TIM1     = 2<<8 | hr1;
     RTC_C->DATE     = 11<<8 | 26;
     RTC_C->YEAR     = 2018;
+
     RTC_C->PS1CTL   = 0b11010;
+
 
     RTC_C->AMINHR   = hr_alarm | min_alarm | BIT(15) | BIT(7);
     RTC_C->ADOWDAY = 0;
@@ -823,14 +872,27 @@ void RTC_C_IRQHandler(void)
         RTC_alarm = 1;
         RTC_C->CTL0 = 0xA500;
     }
-    if(RTC_C->PS1CTL & BIT0) {
-        now.sec         =   RTC_C->TIM0>>0 & 0x00FF;
-        now.min         =   RTC_C->TIM0>>8 & 0x00FF;
-        now.hour        =   RTC_C->TIM1>>0 & 0x00FF;
-        RTC_flag = 1;
-        RTC_C->PS1CTL &= ~BIT0;
-    }
+    if(RTC_C->PS1CTL & BIT0)
+    {
 
+        if(flag_faketime == 1)
+        {
+            now.sec         =   0;
+            now.min         =   RTC_C->TIM0>>0 & 0x00FF;
+            now.hour        =   RTC_C->TIM0>>8 & 0x00FF;
+            RTC_flag = 1;
+            RTC_C->PS1CTL &= ~BIT0;
+        }
+        else
+        {
+            now.sec         =   RTC_C->TIM0>>0 & 0x00FF;
+            now.min         =   RTC_C->TIM0>>8 & 0x00FF;
+            now.hour        =   RTC_C->TIM1>>0 & 0x00FF;
+            RTC_flag = 1;
+            RTC_C->PS1CTL &= ~BIT0;
+        }
+
+    }
 }
 
 /*----------------------------------------------------------------
@@ -842,9 +904,10 @@ void RTC_C_IRQHandler(void)
 ----------------------------------------------------------------*/
 void SysTickInit(void)
 {
-    SysTick->LOAD       =   ADC_CONVERSION_RATE;        //Set interval for interrupt to occur at
+    SysTick->CTRL       =   0;
+    SysTick->LOAD       =   3000000;        //Set interval for interrupt to occur at
     SysTick->VAL        =   0;                          //Reset value to zero
-    SysTick->CTRL       =   0b111;                      //Set CLK, Set IE, Set Run
+    SysTick->CTRL       =   0b101;                      //Set CLK, Set IE, Set Run
 }
 
 //void Timer_32_init()
@@ -866,119 +929,121 @@ void SysTickInit(void)
 //
 //    TIMER32_1 -> INTCLR = 0;
 //}
+//
 
+//
+//
+//
+/////*
+//// * Systick Interrupt for temperature sensor
+//// */
+////void SysTick_Handler(void)
+////{
+////    ADC14->CTL0 |= ADC14_CTL0_SC; //start conversation
+////}
 
-
-
-
-/*
- * Systick Interrupt for temperature sensor
- */
-void SysTick_Handler(void)
-{
-    ADC14->CTL0 |= ADC14_CTL0_SC; //start conversation
-}
-
-void conversion(void)
-{
-    result = ADC14->MEM[0]; // get the value from the ADC
-    nADC = (result * 3.3) / 16384; //Converts value to voltage
-    nADC = nADC * 1000.0; //converts V to mV
-    temp_C = (nADC/10); //converts mV to temperature reading in degrees Celsius
-    temp_F = (temp_C * 1.8) + 32; //converts degrees Celsius to degrees Farenheit
-    printf("Value is:\n\t%d\n\t%f\n", result, nADC );
-    printf("Temp = %f degrees Celsius\n Temp = %f degrees Farenheit\n", temp_C , temp_F);
-    delay_milli(500);
-    Print_Temp();
-}
-/*----------------------------------------------------------------
- * void Print_Temp(void)
- *
- * Description: Function will print "Current Temp. is" and
- * temperature value in degrees Farenheit to LCD.
- * Clock Source: SMCLK
- * Clock DIV:   32
- * Resolution: 10 bits
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void Print_Temp(void)
-{
-    int i;
-    char Current_Temp_Is[] = "Current Temp. Is";
-    char temp_Celsius[5];
-    char temp_Farenheit[5];
-    LCD_Init();
-    delay_milli(100);
-    commandWrite(0x80);
-    delay_milli(100);
-    for(i=0;i<16;i++)
-    {
-        dataWrite(Current_Temp_Is[i]);
-    }
-    sprintf(temp_Farenheit , "%f" , temp_F);
-    delay_milli(100);
-    commandWrite(0xC5);
-    delay_milli(100);
-    for(i=0;i<5;i++)
-    {
-        dataWrite(temp_Farenheit[i]);
-    }
-    delay_milli(100);
-    dataWrite(1101110);
-    delay_milli(5000);
-}
-/*----------------------------------------------------------------
- * void ADC14init(void)
- *
- * Description: Function will set up the ADC14 to run in single
- * measurement mode and to interrupt upon conversion.
- * Clock Source: SMCLK
- * Clock DIV:   32
- * Resolution: 10 bits
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void ADC14init(void)
-{
-    P4->SEL0            |=   BIT6;                      // Select ADC Operation
-    P4->SEL1            |=   BIT6;                      // SEL = 11 sets to ADC operation
-
-    ADC14->CTL0         =    0;                         // Disable ADC for setup
-
-    // CTL0 Configuration
-    // 31-30 = 10   to divide down input clock by 4X
-    // 26    = 1    to sample only when told to
-    // 21-19 = 100  for SMCLK
-    // 11-8  = 0011 for 32 clk sample and hold time
-    // 4     = 1    to turn on ADC
-    ADC14->CTL0         =    0b10000100001000000000001100010000;
-
-    ADC14->CTL1         =    0b110000;                  // Bits 5 and 4 = 11 to enable 14 bit conversion
-    ADC14->MCTL[0]      =    7;                         // Default configuration for ADC Channel
-    ADC14->IER0         |=   BIT0;                      // Interrupt on
-    ADC14->CTL0         |=   0b10;                      // Enable Conversion
-    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
-}
-/*----------------------------------------------------------------
- * void ADC14_IRQHandler(void)
- *
- * Description: Sets the Timer_A0 output to a period based on the
- * value of a potentiometer.  The period changes the frequency
- * which changes the pitch of a note.
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void ADC14_IRQHandler(void)
-{
-    if(ADC14->IFGR0 & BIT0)                             // Table 20-14. ADC14IFGR0 Register Description of Reference Manual says interrupt flag will be at BIT0 for ADC14MEM0
-    {
-        // At 3MHz, 525 Hz is 3000000/525=5714
-        // At 3MHz, 5000 Hz is 3000000/5000=600
-        // An ADC value of 0 should result in CCR[0] set to 600
-        // An ADC value of 16535 (2^14 for 14 bit ADC) should result in CCR[0] set to 5714
-        conversion();
-        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
-    }
-    ADC14->CLRIFGR1 &=  ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
-}
+//void conversion(void)
+//{
+//    result = ADC14->MEM[0]; // get the value from the ADC
+//    nADC = (result * 3.3) / 16384; //Converts value to voltage
+//    nADC = nADC * 1000.0; //converts V to mV
+//    temp_C = (nADC/10); //converts mV to temperature reading in degrees Celsius
+//    temp_F = (temp_C * 1.8) + 32; //converts degrees Celsius to degrees Farenheit
+//    printf("Value is:\n\t%d\n\t%f\n", result, nADC );
+//    printf("Temp = %f degrees Celsius\n Temp = %f degrees Farenheit\n", temp_C , temp_F);
+//    delay_ms(500);
+//    Print_Temp();
+//}
+///*----------------------------------------------------------------
+// * void Print_Temp(void)
+// *
+// * Description: Function will print "Current Temp. is" and
+// * temperature value in degrees Farenheit to LCD.
+// * Clock Source: SMCLK
+// * Clock DIV:   32
+// * Resolution: 10 bits
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void Print_Temp(void)
+//{
+//    int k;
+//    //char Current_Temp_Is[] = "Current Temp. Is";
+//    //char temp_Celsius[5];
+////    char temp_Farenheit[5];
+//    //LCD_Init();
+////    delay_milli(100);
+////    commandWrite(0x80);
+////    delay_milli(100);
+////    for(i=0;i<16;i++)
+////    {
+////        dataWrite(Current_Temp_Is[i]);
+////    }
+//    sprintf(temp_Farenheit , "%f" , temp_F);
+//   delay_ms(100);
+//    commandWrite(0x90);
+//   delay_ms(100);
+//    for(k=0;k<3;k++)
+//    {
+//        dataWrite(temp_Farenheit[k]);
+//    }
+////    delay_ms(100);
+//    dataWrite(0b1101110);
+////    delay_ms(5000);
+//}
+///*----------------------------------------------------------------
+// * void ADC14init(void)
+// *
+// * Description: Function will set up the ADC14 to run in single
+// * measurement mode and to interrupt upon conversion.
+// * Clock Source: SMCLK
+// * Clock DIV:   32
+// * Resolution: 10 bits
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void ADC14init(void)
+//{
+//    P4->SEL0            |=   BIT6;                      // Select ADC Operation
+//    P4->SEL1            |=   BIT6;                      // SEL = 11 sets to ADC operation
+//
+//    ADC14->CTL0         =    0;                         // Disable ADC for setup
+//
+//    // CTL0 Configuration
+//    // 31-30 = 10   to divide down input clock by 4X
+//    // 26    = 1    to sample only when told to
+//    // 21-19 = 100  for SMCLK
+//    // 11-8  = 0011 for 32 clk sample and hold time
+//    // 4     = 1    to turn on ADC
+//    ADC14->CTL0         =    0b10000100001000000000001100010000;
+//
+//    ADC14->CTL1         =    0b110000;                  // Bits 5 and 4 = 11 to enable 14 bit conversion
+//    ADC14->MCTL[0]      =    7;                         // Default configuration for ADC Channel
+//    ADC14->IER0         |=   BIT0;                      // Interrupt on
+//    ADC14->CTL0         |=   0b10;                      // Enable Conversion
+//    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
+//
+//ADC14->CTL0 |= ADC14_CTL0_SC; //start conversation
+//}
+///*----------------------------------------------------------------
+// * void ADC14_IRQHandler(void)
+// *
+// * Description: Sets the Timer_A0 output to a period based on the
+// * value of a potentiometer.  The period changes the frequency
+// * which changes the pitch of a note.
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void ADC14_IRQHandler(void)
+//{
+//    if(ADC14->IFGR0 & BIT0)                             // Table 20-14. ADC14IFGR0 Register Description of Reference Manual says interrupt flag will be at BIT0 for ADC14MEM0
+//    {
+//        // At 3MHz, 525 Hz is 3000000/525=5714
+//        // At 3MHz, 5000 Hz is 3000000/5000=600
+//        // An ADC value of 0 should result in CCR[0] set to 600
+//        // An ADC value of 16535 (2^14 for 14 bit ADC) should result in CCR[0] set to 5714
+//        conversion();
+//        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
+//    }
+//    ADC14->CLRIFGR1 &=  ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
+//}
