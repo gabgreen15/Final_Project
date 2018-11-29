@@ -59,6 +59,17 @@ struct
 
 uint8_t RTC_flag = 0, RTC_alarm;
 
+volatile uint16_t result;
+float nADC;
+float temp_C;
+float temp_F;
+
+void Print_Temp(void);
+void conversion(void);
+void SysTick_Handler(void);
+void ADC14init(void);
+#define ADC_CONVERSION_RATE 1500000   //3000*500ms = 2 per second or 1 every .5 seconds
+
 
 void main(void)
 {
@@ -67,7 +78,7 @@ void main(void)
     __disable_irq();
     SetupPort5Interrupts();
     SetupPort3Interrupts();
-
+    ADC14init();                                        // Start ADC to read from potentiometer
     configRTC();
     NVIC_EnableIRQ(RTC_C_IRQn);
 
@@ -822,12 +833,18 @@ void RTC_C_IRQHandler(void)
 
 }
 
+/*----------------------------------------------------------------
+ * void SysTickInit(void)
+ *
+ * Description: Set SysTick interval.  Set CLK, IE, and Run
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
 void SysTickInit(void)
 {
-    SysTick->CTRL       =   0;
-    SysTick->LOAD       =   0;        //Set interval for interrupt to occur at
+    SysTick->LOAD       =   ADC_CONVERSION_RATE;        //Set interval for interrupt to occur at
     SysTick->VAL        =   0;                          //Reset value to zero
-    SysTick->CTRL       =   0b101;                      //Set CLK, Set IE, Set Run
+    SysTick->CTRL       =   0b111;                      //Set CLK, Set IE, Set Run
 }
 
 //void Timer_32_init()
@@ -849,3 +866,119 @@ void SysTickInit(void)
 //
 //    TIMER32_1 -> INTCLR = 0;
 //}
+
+
+
+
+
+/*
+ * Systick Interrupt for temperature sensor
+ */
+void SysTick_Handler(void)
+{
+    ADC14->CTL0 |= ADC14_CTL0_SC; //start conversation
+}
+
+void conversion(void)
+{
+    result = ADC14->MEM[0]; // get the value from the ADC
+    nADC = (result * 3.3) / 16384; //Converts value to voltage
+    nADC = nADC * 1000.0; //converts V to mV
+    temp_C = (nADC/10); //converts mV to temperature reading in degrees Celsius
+    temp_F = (temp_C * 1.8) + 32; //converts degrees Celsius to degrees Farenheit
+    printf("Value is:\n\t%d\n\t%f\n", result, nADC );
+    printf("Temp = %f degrees Celsius\n Temp = %f degrees Farenheit\n", temp_C , temp_F);
+    delay_milli(500);
+    Print_Temp();
+}
+/*----------------------------------------------------------------
+ * void Print_Temp(void)
+ *
+ * Description: Function will print "Current Temp. is" and
+ * temperature value in degrees Farenheit to LCD.
+ * Clock Source: SMCLK
+ * Clock DIV:   32
+ * Resolution: 10 bits
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
+void Print_Temp(void)
+{
+    int i;
+    char Current_Temp_Is[] = "Current Temp. Is";
+    char temp_Celsius[5];
+    char temp_Farenheit[5];
+    LCD_Init();
+    delay_milli(100);
+    commandWrite(0x80);
+    delay_milli(100);
+    for(i=0;i<16;i++)
+    {
+        dataWrite(Current_Temp_Is[i]);
+    }
+    sprintf(temp_Farenheit , "%f" , temp_F);
+    delay_milli(100);
+    commandWrite(0xC5);
+    delay_milli(100);
+    for(i=0;i<5;i++)
+    {
+        dataWrite(temp_Farenheit[i]);
+    }
+    delay_milli(100);
+    dataWrite(1101110);
+    delay_milli(5000);
+}
+/*----------------------------------------------------------------
+ * void ADC14init(void)
+ *
+ * Description: Function will set up the ADC14 to run in single
+ * measurement mode and to interrupt upon conversion.
+ * Clock Source: SMCLK
+ * Clock DIV:   32
+ * Resolution: 10 bits
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
+void ADC14init(void)
+{
+    P4->SEL0            |=   BIT6;                      // Select ADC Operation
+    P4->SEL1            |=   BIT6;                      // SEL = 11 sets to ADC operation
+
+    ADC14->CTL0         =    0;                         // Disable ADC for setup
+
+    // CTL0 Configuration
+    // 31-30 = 10   to divide down input clock by 4X
+    // 26    = 1    to sample only when told to
+    // 21-19 = 100  for SMCLK
+    // 11-8  = 0011 for 32 clk sample and hold time
+    // 4     = 1    to turn on ADC
+    ADC14->CTL0         =    0b10000100001000000000001100010000;
+
+    ADC14->CTL1         =    0b110000;                  // Bits 5 and 4 = 11 to enable 14 bit conversion
+    ADC14->MCTL[0]      =    7;                         // Default configuration for ADC Channel
+    ADC14->IER0         |=   BIT0;                      // Interrupt on
+    ADC14->CTL0         |=   0b10;                      // Enable Conversion
+    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
+}
+/*----------------------------------------------------------------
+ * void ADC14_IRQHandler(void)
+ *
+ * Description: Sets the Timer_A0 output to a period based on the
+ * value of a potentiometer.  The period changes the frequency
+ * which changes the pitch of a note.
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
+void ADC14_IRQHandler(void)
+{
+    if(ADC14->IFGR0 & BIT0)                             // Table 20-14. ADC14IFGR0 Register Description of Reference Manual says interrupt flag will be at BIT0 for ADC14MEM0
+    {
+        // At 3MHz, 525 Hz is 3000000/525=5714
+        // At 3MHz, 5000 Hz is 3000000/5000=600
+        // An ADC value of 0 should result in CCR[0] set to 600
+        // An ADC value of 16535 (2^14 for 14 bit ADC) should result in CCR[0] set to 5714
+        conversion();
+        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
+    }
+    ADC14->CLRIFGR1 &=  ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
+}
