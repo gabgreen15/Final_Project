@@ -48,7 +48,7 @@ int flag_time = 0;
 int button_alarm = 0;
 
 
-uint8_t hr1 = 12, min1 = 30, sec1 = 55;
+uint8_t hr1 = 12, min1 = 35, sec1 = 55;
 uint8_t hr_alarm = 12, min_alarm = 31;
 
 // global struct variable called now
@@ -148,7 +148,11 @@ void main(void)
                 SetupTimer32s();
             }
         }
-        //Alarm_Status();
+        else
+        {
+            Alarm_Status();
+
+        }
 
 	   enum states state = HOURS;
 
@@ -517,6 +521,8 @@ void PORT5_IRQHandler(void)
                 if(RTC_alarm == 1)
                 {
                     RTC_alarm = 0;
+//                    TIMER32_1->CONTROL = 0b01000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
+//                    TIMER32_2->CONTROL = 0b01100011;
                 }
             }
         }
@@ -1281,7 +1287,7 @@ void TA0_N_IRQHandler()
 
 void T32_INT2_IRQHandler()
 {
-    if(RTC_alarm == 1 && flag_snooze == 0)
+    if((RTC_alarm == 1 || button_alarm == 1) && flag_snooze == 0)
     {
     TIMER32_2->INTCLR = 1;                                      //Clear interrupt flag so it does not interrupt again immediately.
                                                     //If not a breath (a note)
@@ -1304,5 +1310,12 @@ void T32_INT2_IRQHandler()
         }
 
 
+    }
+    else                                                //disables interrupts
+    {
+        TIMER32_1->CONTROL = 0b01000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
+        TIMER32_2->CONTROL = 0b01100011;
+
+        TIMER_A0->CCTL[1] = 0b0000000011100100;         // Setup Timer A0_1 Reset/Set, Interrupt, No Output
     }
 }
