@@ -182,9 +182,24 @@ void main(void)
 	    {
 
 	    case HOURS:
-//	        commandWrite(0x08);
-//	        delay_ms(1000);
-//	        commandWrite(0x0C);
+	        if(hr1 < 10)
+	        {
+	            commandWrite(0x80);
+	            delay_ms(500);
+	            dataWrite(0b00100000);
+	            delay_ms(500);
+	            printRTC_SetTime();
+	        }
+	        else
+	        {
+	            commandWrite(0x80);
+	            delay_ms(500);
+	            dataWrite(0b00100000);
+	            dataWrite(0b00100000);
+	            delay_ms(500);
+	            printRTC_SetTime();
+	        }
+
 	        if(flag_up == 1)
 	        {
 	            hr1 = hr1 + 0b1;
@@ -223,6 +238,24 @@ void main(void)
 	        }
 	        break;
 	    case MINUTES:
+            if(hr1 < 10)
+            {
+                commandWrite(0x82);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printRTC_SetTime();
+            }
+            else
+            {
+                commandWrite(0x83);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printRTC_SetTime();
+            }
 	        if(flag_up == 1)
 	        {
 	            min1 = min1 + 0b1;
@@ -240,6 +273,24 @@ void main(void)
 	         }
 	        break;
 	    case SECONDS:
+            if(hr1 < 10)
+            {
+                commandWrite(0x85);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printRTC_SetTime();
+            }
+            else
+            {
+                commandWrite(0x86);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printRTC_SetTime();
+            }
 	        if(flag_up == 1)
 	        {
 	            sec1 = sec1 + 0b1;
@@ -257,6 +308,23 @@ void main(void)
 	        break;
 
 	    case HOURS_ALARM:
+            if(hr_alarm < 10)
+            {
+                commandWrite(0xC0);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printAlarm();
+            }
+            else
+            {
+                commandWrite(0xC0);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printAlarm();
+            }
 	        if(flag_up == 1)
 	        {
 	            hr_alarm = hr_alarm + 0b1;
@@ -298,6 +366,24 @@ void main(void)
 	        break;
 
 	    case MINUTES_ALARM:
+            if(hr_alarm < 10)
+            {
+                commandWrite(0xC2);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printAlarm();
+            }
+            else
+            {
+                commandWrite(0xC3);
+                delay_ms(500);
+                dataWrite(0b00100000);
+                dataWrite(0b00100000);
+                delay_ms(500);
+                printAlarm();
+            }
 	        if(flag_up == 1)
 	        {
                 min_alarm = min_alarm + 0b1;
