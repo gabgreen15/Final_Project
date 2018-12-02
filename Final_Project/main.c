@@ -31,7 +31,8 @@ volatile int flag_realtime=0,flag_faketime=0;
 
 volatile char current_day_status = 'A';
 
-
+void TimerA_Init_BLUE(void);
+void TimerA_Init_GREEN(void);
 void SetupPort5Interrupts(void);
 void SetupPort1Interrupts();
 void PORT5_IRQHandler(void);
@@ -47,9 +48,14 @@ int flag_time = 0;
 
 int button_alarm = 0;
 
+volatile int sec_lights = 0, min_lights = 0;
+volatile int percent = 0;
 
-uint8_t hr1 = 12, min1 = 35, sec1 = 55;
-uint8_t hr_alarm = 12, min_alarm = 31;
+uint8_t hr1 = 12, min1 = 29, sec1 = 55;
+uint8_t hr_alarm = 12, min_alarm = 35;
+
+int flag2 = 0;
+int flag3 = 0;
 
 // global struct variable called now
 struct
@@ -118,6 +124,11 @@ void main(void)
 
     while(1)
     {
+        if((hr_alarm == now.hour) && (min_alarm == now.min + 5))
+        {
+            TimerA_Init_BLUE();
+            TimerA_Init_GREEN();
+        }
         if(RTC_flag)
         {
             printRTC();
@@ -629,20 +640,14 @@ void PORT1_IRQHandler(void)
 
     if(status & BIT1)
     {
-        if(flag_faketime == 0)
-        {
             flag_faketime = 1;
-        }
-        else
-        {
-            flag_faketime = 0;
-        }
+            flag2 = 1;
+            flag3 = 1;
     }
-   /* if(status & BIT4)
+    if(status & BIT4)
     {
-        flag_realtime = 1;
         flag_faketime = 0;
-    }*/
+    }
 }
 /*
  * void Initialize_Pins(void)
@@ -1052,14 +1057,36 @@ void RTC_C_IRQHandler(void)
 
         if(flag_faketime == 1)
         {
+            if(flag3 ==1)
+            {
+            sec1 = now.min;
+            min1 = now.hour;
+
+            configRTC();
+
+            flag3 = 0;
+            }
+
             now.sec         =   0;
             now.min         =   RTC_C->TIM0>>0 & 0x00FF;
             now.hour        =   RTC_C->TIM0>>8 & 0x00FF;
+
             RTC_flag = 1;
             RTC_C->PS1CTL &= ~BIT0;
         }
         else
         {
+            if(flag2 == 1)
+            {
+            sec1 = 0;
+            min1 = now.min;
+            hr1 = now.hour;
+
+            configRTC();
+
+            flag2 = 0;
+            }
+
             now.sec         =   RTC_C->TIM0>>0 & 0x00FF;
             now.min         =   RTC_C->TIM0>>8 & 0x00FF;
             now.hour        =   RTC_C->TIM1>>0 & 0x00FF;
@@ -1318,4 +1345,33 @@ void T32_INT2_IRQHandler()
 
         TIMER_A0->CCTL[1] = 0b0000000011100100;         // Setup Timer A0_1 Reset/Set, Interrupt, No Output
     }
+}
+
+void TimerA_Init_BLUE(void)
+{
+
+
+    if(now.sec == sec_lights)
+{
+    percent = percent + 10;
+    TIMER_A0->CCR[0] = 999;
+    TIMER_A0->CCR[3] = percent;
+
+    TIMER_A0->CCTL[3] = 0b0000000011100000;
+    TIMER_A0->CTL = 0b0000001001010100;
+
+    sec_lights = now.sec + 3;
+
+}
+
+
+}
+
+void TimerA_Init_GREEN(void)
+{
+    TIMER_A0->CCR[0] = 999;
+    TIMER_A0->CCR[2] = percent;
+
+    TIMER_A0->CCTL[2] = 0b0000000011100000;
+    TIMER_A0->CTL = 0b0000001001010100;
 }
