@@ -26,8 +26,9 @@ void commandWrite(uint8_t command);
 void dataWrite(uint8_t data);
 
 
-volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0, flag_snooze = 0;
+volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0, flag_snooze;
 volatile int flag_realtime=0,flag_faketime=0;
+volatile int flag_alarm_no_snooze = 1;
 
 volatile char current_day_status = 'A';
 
@@ -51,7 +52,7 @@ int button_alarm = 0;
 volatile int sec_lights = 0, min_lights = 0;
 volatile int percent = 0;
 
-uint8_t hr1 = 12, min1 = 29, sec1 = 55;
+uint8_t hr1 = 12, min1 = 34, sec1 = 55;
 uint8_t hr_alarm = 12, min_alarm = 35;
 
 int flag2 = 0;
@@ -134,9 +135,9 @@ void main(void)
             printRTC();
             RTC_flag = 0;
         }
-        if(RTC_alarm || button_alarm)
+        if(RTC_alarm && button_alarm)
         {
-            if(flag_snooze == 1)
+            if(flag_alarm_no_snooze == 0)
             {
                 Alarm_Status();
                 min_alarm = min_alarm + 10;
@@ -147,16 +148,17 @@ void main(void)
 
                 configRTC();
                 printAlarm();
-                flag_snooze = 0;
+//                flag_snooze = 0;
                 RTC_alarm = 0;
 
-                TIMER32_1->CONTROL = 0b01000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
-                TIMER32_2->CONTROL = 0b01100011;
+                TIMER32_1->CONTROL = 0x0;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
+                TIMER32_2->CONTROL = 0x0;
             }
-            else
+            if(flag_alarm_no_snooze == 1)
             {
                 Alarm_Status();
                 SetupTimer32s();
+
             }
         }
         else
@@ -521,10 +523,10 @@ void PORT5_IRQHandler(void)
             if(button_alarm == 0)
             {
                 button_alarm = 1;
-                if(RTC_alarm == 1)
-                {
-                    RTC_alarm = 0;
-                }
+//                if(RTC_alarm == 1)
+//                {
+//                    RTC_alarm = 0;
+//                }
             }
             else
             {
@@ -627,7 +629,8 @@ void PORT3_IRQHandler(void)
         }
         else
         {
-            flag_snooze = 1;
+            flag_snooze = 2;
+            flag_alarm_no_snooze = 0;
         }
     }
 }
@@ -1050,6 +1053,7 @@ void RTC_C_IRQHandler(void)
 {
     if(RTC_C->CTL0 & BIT1) {
         RTC_alarm = 1;
+        flag_alarm_no_snooze = 1;
         RTC_C->CTL0 = 0xA500;
     }
     if(RTC_C->PS1CTL & BIT0)
@@ -1251,9 +1255,9 @@ void Alarm_Status(void)
     {
         dataWrite(alarm_status[i]);
     }
-    if(button_alarm == 1 || RTC_alarm == 1)
+    if(button_alarm == 1)
     {
-        if((flag_snooze == 1) && (RTC_alarm == 1))
+        if((flag_snooze == 2))
         {
             for(i = 0; i<6; i++)
             {
@@ -1284,6 +1288,8 @@ void Alarm_Status(void)
 
 void SetupTimer32s()
 {
+    flag_snooze = 0;
+
     TIMER32_1->CONTROL = 0b11000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
     TIMER32_2->CONTROL = 0b11100011;                //Sets timer 2 for Enabled, Periodic, With Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
     NVIC_EnableIRQ(T32_INT2_IRQn);                  //Enable Timer32_2 interrupt.  Look at msp.h if you want to see what all these are called.
@@ -1314,7 +1320,7 @@ void TA0_N_IRQHandler()
 
 void T32_INT2_IRQHandler()
 {
-    if((RTC_alarm == 1 || button_alarm == 1) && flag_snooze == 0)
+    if((RTC_alarm == 1) && (button_alarm == 1) && (flag_snooze == 0))
     {
     TIMER32_2->INTCLR = 1;                                      //Clear interrupt flag so it does not interrupt again immediately.
                                                     //If not a breath (a note)
@@ -1340,10 +1346,10 @@ void T32_INT2_IRQHandler()
     }
     else                                                //disables interrupts
     {
-        TIMER32_1->CONTROL = 0b01000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
-        TIMER32_2->CONTROL = 0b01100011;
+        TIMER32_1->CONTROL = 0b0;               //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
+        TIMER32_2->CONTROL = 0b0;
 
-        TIMER_A0->CCTL[1] = 0b0000000011100100;         // Setup Timer A0_1 Reset/Set, Interrupt, No Output
+        TIMER_A0->CCTL[1] = 0b0;         // Setup Timer A0_1 Reset/Set, Interrupt, No Output
     }
 }
 
