@@ -531,6 +531,7 @@ void PORT5_IRQHandler(void)
             else
             {
                 button_alarm = 0;
+                flag_snooze = 0;
                 if(RTC_alarm == 1)
                 {
                     RTC_alarm = 0;
@@ -1282,13 +1283,16 @@ void Alarm_Status(void)
         {
             dataWrite(alarm_off[i]);
         }
+        dataWrite(0b00100000);
+        dataWrite(0b00100000);
+        dataWrite(0b00100000);
     }
 
 }
 
 void SetupTimer32s()
 {
-    flag_snooze = 0;
+//    flag_snooze = 0;
 
     TIMER32_1->CONTROL = 0b11000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
     TIMER32_2->CONTROL = 0b11100011;                //Sets timer 2 for Enabled, Periodic, With Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
