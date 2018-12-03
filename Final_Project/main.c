@@ -29,6 +29,7 @@ void dataWrite(uint8_t data);
 volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0, flag_snooze;
 volatile int flag_realtime=0,flag_faketime=0;
 volatile int flag_alarm_no_snooze = 1;
+volatile int flag_wake_lights = 0;
 
 volatile char current_day_status = 'A';
 
@@ -127,6 +128,7 @@ void main(void)
     {
         if((hr_alarm == now.hour) && (min_alarm == now.min + 5))
         {
+            flag_wake_lights = 1;
             TimerA_Init_BLUE();
             TimerA_Init_GREEN();
         }
@@ -539,6 +541,13 @@ void PORT5_IRQHandler(void)
 //                    TIMER32_2->CONTROL = 0b01100011;
                 }
             }
+        }
+
+        if(flag_wake_lights)
+        {
+            TIMER_A0->CCR[3] = 0;
+            TIMER_A0->CCR[2] = 0;
+            flag_wake_lights = 0;
         }
     }
 
