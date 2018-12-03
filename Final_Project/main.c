@@ -26,7 +26,7 @@ void commandWrite(uint8_t command);
 void dataWrite(uint8_t data);
 
 
-volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0, flag_snooze;
+volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_alarm = 0, flag_snooze=0;
 volatile int flag_realtime=0,flag_faketime=0;
 volatile int flag_alarm_no_snooze = 1;
 volatile int flag_wake_lights = 0;
@@ -48,12 +48,12 @@ void printRTC_SetTime(void);
 
 int flag_time = 0;
 
-int button_alarm = 0;
+int button_alarm = 1; //should be initialized as 0
 
 volatile int sec_lights = 0, min_lights = 0;
 volatile int percent = 0;
 
-uint8_t hr1 = 12, min1 = 34, sec1 = 55;
+uint8_t hr1 = 12, min1 = 54, sec1 = 50;
 uint8_t hr_alarm = 12, min_alarm = 35;
 
 int flag2 = 0;
@@ -126,7 +126,7 @@ void main(void)
 
     while(1)
     {
-        if((hr_alarm == now.hour) && (min_alarm == now.min + 5))
+        if((hr_alarm == now.hour) && (now.min < min_alarm) && (now.min >= (min_alarm - 5)) && button_alarm)
         {
             flag_wake_lights = 1;
             TimerA_Init_BLUE();
@@ -240,7 +240,7 @@ void main(void)
 	        if(flag_down == 1)
 	        {
                 hr1 = hr1 - 0b1;
-                if(hr1 == 12)
+                if(hr1 == 11)
                 {
                     if(flag_time ==0)
                     {
@@ -285,7 +285,14 @@ void main(void)
 
 	        if(flag_down == 1)
 	        {
+	            if(min1 == 0)
+	            {
+	                min1 = 59;
+	            }
+	            else
+	            {
 	             min1 = min1 - 0b1;
+	            }
 	             configRTC();
 	             printRTC_SetTime();
 	             flag_down = 0;
@@ -319,10 +326,17 @@ void main(void)
 	        }
             if(flag_down == 1)
             {
-                sec1 = sec1 - 0b1;
-                configRTC();
-                printRTC_SetTime();
-                flag_down = 0;
+                if(sec1 == 0)
+                {
+                    sec1 = 59;
+                }
+                else
+                {
+                 sec1 = sec1 - 0b1;
+                }
+                 configRTC();
+                 printRTC_SetTime();
+                 flag_down = 0;
              }
 	        break;
 
@@ -367,7 +381,12 @@ void main(void)
             {
                 hr_alarm = hr_alarm - 0b1;
 
-                if(hr_alarm==12)
+                if(hr_alarm == 0)
+                {
+                    hr_alarm = 12;
+                }
+
+                if(hr_alarm==11)
                 {
                     if(flag_time ==0)
                     {
@@ -412,7 +431,14 @@ void main(void)
 	        }
             if(flag_down == 1)
             {
-                min_alarm = min_alarm - 0b1;
+                if(min_alarm == 0)
+                {
+                    min_alarm = 59;
+                }
+                else
+                {
+                 min_alarm = min_alarm - 0b1;
+                }
                  configRTC();
                  printAlarm();
                  flag_down = 0;
@@ -437,11 +463,17 @@ void printAlarm(void)
     {
         hr_alarm = hr_alarm - 0b1100; //12 in binary
     }
+    if(hr_alarm == 0)
+    {
+        hr_alarm = 12;
+    }
     if(min_alarm > 59)
     {
-        min_alarm = min_alarm - 0b111100; //60 in binary
+        min_alarm = 0;
+        //min_alarm = min_alarm - 0b111100; //60 in binary
     }
 
+    configRTC();
 
     commandWrite(0xC0);
     if(hr_alarm>=10)
@@ -689,17 +721,17 @@ void Initialize_Pins(void)
 
 
 
-    //initializes P2.5 to be used for Timer A for Green LED
-    P2->SEL0 |= BIT5; //set as Timer A
-    P2->SEL1 &= ~(BIT5); //set as Timer A
-    P2->DIR |= BIT5; //set as output
-    P2->OUT &= ~(BIT5);
+    //initializes P2.5 to be used for Timer A for Blue LED
+    P6->SEL0 |= BIT6; //set as Timer A
+    P6->SEL1 &= ~(BIT6); //set as Timer A
+    P6->DIR |= BIT6; //set as output
+    P6->OUT &= ~(BIT6);
 
-    //initializes P2.6 to be used for Timer A for Blue LED
-    P2->SEL0 |= BIT6; //set as Timer A
-    P2->SEL1 &= ~(BIT6); //set as Timer A
-    P2->DIR |= BIT6; //set as output
-    P2->OUT &= ~(BIT6);
+    //initializes P2.6 to be used for Timer A for Green LED
+    P6->SEL0 |= BIT7; //set as Timer A
+    P6->SEL1 &= ~(BIT7); //set as Timer A
+    P6->DIR |= BIT7; //set as output
+    P6->OUT &= ~(BIT7);
 
 
 }
@@ -984,12 +1016,20 @@ void printRTC_SetTime(void)
     }
     if(min1 > 59)
     {
-        min1 = min1 - 0b111100; //60 in binary
+        min1 = 0;
+       // min1 = min1 - 0b111100; //60 in binary
     }
     if(sec1 > 59)
     {
         sec1 = sec1 - 0b111100; //60 in binary
     }
+
+    if(hr1 == 0)
+    {
+        hr1 = 12;
+    }
+
+    configRTC();
 
     sprintf(hourStr, "%d", hr1);
     sprintf(minStr, "%d", min1);
@@ -1309,13 +1349,13 @@ void SetupTimer32s()
     TIMER32_2->LOAD = 3000000 - 1;                  //Set to a count down of 1 second on 3 MHz clock
 
     TIMER_A0->CCR[0] = 0;                           // Turn off timerA to start
-    TIMER_A0->CCTL[1] = 0b0000000011110100;         // Setup Timer A0_1 Reset/Set, Interrupt, No Output
+    TIMER_A0->CCTL[1] = 0b0000000011100100;         // Setup Timer A0_1 Reset/Set, Interrupt, No Output
     TIMER_A0->CCR[1] = 0;                           // Turn off timerA to start
 //    TIMER_A0->CCTL[2] = 0b0000000011110100;         // Setup Timer A0_2 Reset/Set, Interrupt, No Output
 //    TIMER_A0->CCR[2] = 0;                           // Turn off timerA to start
     TIMER_A0->CTL = 0b0000001000010100;             // Count Up mode using SMCLK, Clears, Clear Interrupt Flag
 
-    NVIC_EnableIRQ(TA0_N_IRQn);                     // Enable interrupts for CCTL1-6 (if on)
+//    NVIC_EnableIRQ(TA0_N_IRQn);                     // Enable interrupts for CCTL1-6 (if on)
 
     P2->SEL0 |= BIT4;                               // Setup the P2.4 to be an output for the song.  This should drive a sounder.
     P2->SEL1 &= ~BIT4;
@@ -1323,13 +1363,13 @@ void SetupTimer32s()
 
 }
 
-void TA0_N_IRQHandler()
-{
-    if(TIMER_A0->CCTL[1] & BIT0) {                  //If CCTL1 is the reason for the interrupt (BIT0 holds the flag)
-    }
-//    if(TIMER_A0->CCTL[2] & BIT0) {                  //If CCTL1 is the reason for the interrupt (BIT0 holds the flag)
+//void TA0_N_IRQHandler()
+//{
+//    if(TIMER_A0->CCTL[1] & BIT0) {                  //If CCTL1 is the reason for the interrupt (BIT0 holds the flag)
 //    }
-}
+////    if(TIMER_A0->CCTL[2] & BIT0) {                  //If CCTL1 is the reason for the interrupt (BIT0 holds the flag)
+////    }
+//}
 
 void T32_INT2_IRQHandler()
 {
@@ -1369,28 +1409,22 @@ void T32_INT2_IRQHandler()
 void TimerA_Init_BLUE(void)
 {
 
+//    percent = percent + 10;
+    TIMER_A2->CCR[0] = 999;
+//    TIMER_A0->CCR[3] = percent;
+    TIMER_A2->CCR[3] = ((10/3)*now.sec)+((5-(min_alarm-now.min))*60*(10/3));
 
-    if(now.sec == sec_lights)
-{
-    percent = percent + 10;
-    TIMER_A0->CCR[0] = 999;
-    TIMER_A0->CCR[3] = percent;
-
-    TIMER_A0->CCTL[3] = 0b0000000011100000;
-    TIMER_A0->CTL = 0b0000001001010100;
-
-    sec_lights = now.sec + 3;
-
-}
+    TIMER_A2->CCTL[3] = 0b0000000011100000;
+    TIMER_A2->CTL = 0b0000001001010100;
 
 
 }
 
 void TimerA_Init_GREEN(void)
 {
-    TIMER_A0->CCR[0] = 999;
-    TIMER_A0->CCR[2] = percent;
+    TIMER_A2->CCR[0] = 999;
+    TIMER_A2->CCR[4] = ((10/3)*now.sec)+((5-(min_alarm-now.min))*60*(10/3));
 
-    TIMER_A0->CCTL[2] = 0b0000000011100000;
-    TIMER_A0->CTL = 0b0000001001010100;
+    TIMER_A2->CCTL[4] = 0b0000000011100000;
+    TIMER_A2->CTL = 0b0000001001010100;
 }
