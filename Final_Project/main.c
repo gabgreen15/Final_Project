@@ -30,6 +30,7 @@ volatile int flag,flag_up=0,flag_down = 0, flag_check_hms = 0, flag_check_hms_al
 volatile int flag_realtime=0,flag_faketime=0;
 volatile int flag_alarm_no_snooze = 1;
 volatile int flag_wake_lights = 0;
+volatile int flag_first_alarm = 0;
 
 volatile char current_day_status = 'A';
 
@@ -53,7 +54,7 @@ int button_alarm = 1; //should be initialized as 0
 volatile int sec_lights = 0, min_lights = 0;
 volatile int percent = 0;
 
-uint8_t hr1 = 12, min1 = 54, sec1 = 50;
+uint8_t hr1 = 12, min1 = 25, sec1 = 50;
 uint8_t hr_alarm = 12, min_alarm = 35;
 
 int flag2 = 0;
@@ -126,7 +127,7 @@ void main(void)
 
     while(1)
     {
-        if((hr_alarm == now.hour) && (now.min < min_alarm) && (now.min >= (min_alarm - 5)) && button_alarm)
+        if((hr_alarm == now.hour) && (now.min < min_alarm) && (now.min >= (min_alarm - 5)) && (button_alarm == 1))
         {
             flag_wake_lights = 1;
             TimerA_Init_BLUE();
@@ -159,7 +160,11 @@ void main(void)
             if(flag_alarm_no_snooze == 1)
             {
                 Alarm_Status();
+                if(flag_first_alarm)
+                {
                 SetupTimer32s();
+                flag_first_alarm = 0;
+                }
 
             }
         }
@@ -575,10 +580,10 @@ void PORT5_IRQHandler(void)
             }
         }
 
-        if(flag_wake_lights)
+        if(flag_wake_lights == 1)
         {
-            TIMER_A0->CCR[3] = 0;
-            TIMER_A0->CCR[2] = 0;
+            TIMER_A2->CCR[3] = 0;
+            TIMER_A2->CCR[4] = 0;
             flag_wake_lights = 0;
         }
     }
@@ -1104,6 +1109,7 @@ void RTC_C_IRQHandler(void)
     if(RTC_C->CTL0 & BIT1) {
         RTC_alarm = 1;
         flag_alarm_no_snooze = 1;
+        flag_first_alarm = 1;
         RTC_C->CTL0 = 0xA500;
     }
     if(RTC_C->PS1CTL & BIT0)
