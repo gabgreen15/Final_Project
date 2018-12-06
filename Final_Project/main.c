@@ -129,7 +129,13 @@ char hr1_array_A[1], hr2_array_A[1], min1_array_A[1], min2_array_A[1];
  *
  * The purpose of this function is to execute the main portion
  * of the code - this contains the state machine for setting the
- * time and the alarm as well as using serial commands
+ * time and the alarm as well as using serial commands.
+ *
+ * Inputs: Global variables used as flags, global variables 'hr1', 'min1', 'sec1',
+ * 'now.hour', 'now.min', now.sec', 'hr_alarm', 'min_alarm' used to set time and alarm
+ *
+ * Outputs: Initialize important functions and write current time, alarm time,
+ * alarm status, and temperature to LCD screen
  */
 
 void main(void)
@@ -302,7 +308,7 @@ void main(void)
                 Alarm_Status();
                 if(flag_first_alarm)            //If first time program goes into the interrupt (used to TIMER32 only initializes once)
                 {
-                    SetupTimer32s();            //Initialize TIMER32
+                    SetupTimer32s();            //Initialize TIMER32 to start alarm
                     flag_first_alarm = 0;
                 }
             }
@@ -347,7 +353,7 @@ void main(void)
             {
                 commandWrite(0x80);
                 delay_ms(500);
-                dataWrite(0b00100000);
+                dataWrite(0b00100000);     //Binary value to clear that address on the hLCD screen
                 delay_ms(500);
                 printRTC_SetTime();
             }
@@ -589,6 +595,10 @@ void main(void)
  * The purpose of this function is to print the current alarm time that is set
  * in the RTC to the LCD screen.
  *
+ * Inputs: Global variables 'hr_alarm' and 'min_alarm'
+ *
+ * Output: Write alarm time to LCD screen
+ *
  */
 void printAlarm(void)
 {
@@ -628,7 +638,7 @@ void printAlarm(void)
         commandWrite(0xC0);
         dataWrite(hour_alarm[0]);
     }
-    dataWrite(0b00111010);
+    dataWrite(0b00111010);          //Binary value to print a ':' to the LCD screen
     commandWrite(0xC2+j);
     if(min_alarm<10)
     {
@@ -660,6 +670,10 @@ void printAlarm(void)
  * This function is the interrupt handler for all interrupts occurring on P5. The purpose of this function is
  * to check each bit and carry out the specific action for that interrupt.
  *
+ * Inputs: NONE (interrupt)
+ *
+ * Outputs: Global variables used as flags for SET TIME button, SET ALARM button, and
+ * ON/OFF/UP button
  */
 void PORT5_IRQHandler(void)
 {
@@ -714,8 +728,8 @@ void PORT5_IRQHandler(void)
         {
             flag_disable_lights = 1;    //Turns off wake lights
             button_alarm = 1;           //Keeps alarm enabled
-            TIMER_A0->CCR[1] = 0;
-            TIMER_A0->CCR[2] = 0;
+            TIMER_A0->CCR[1] = 0;       //Disables TimerA
+            TIMER_A0->CCR[2] = 0;       //Disables TimerA
             flag_wake_lights = 0;
         }
     }
@@ -726,6 +740,9 @@ void PORT5_IRQHandler(void)
  *
  * The purpose of this function is to setup the pins on Port 5 that have interrupts.
  *
+ * Inputs: NONE
+ *
+ * Outputs: Sets up interrupts for Port 5
  */
 void SetupPort5Interrupts()
 {
@@ -798,6 +815,9 @@ void SetupPort3Interrupts()
  *
  * The purpose of this function is to setup the pins on Port 1 that have interrupts.
  *
+ * Inputs: NONE
+ *
+ * Outputs: Sets up interrupts for Port 1
  */
 void SetupPort1Interrupts()
 {
@@ -820,6 +840,9 @@ void SetupPort1Interrupts()
  * This function is the interrupt handler for all interrupts occurring on P3. The purpose of this function is
  * to check each bit and carry out the specific action for that interrupt.
  *
+ * Inputs: NONE (interrupt)
+ *
+ * Outputs: Global variables used for SNOOZE/DOWN button
  */
 void PORT3_IRQHandler(void)
 {
@@ -851,6 +874,9 @@ void PORT3_IRQHandler(void)
  * This function is the interrupt handler for all interrupts occurring on P1. The purpose of this function is
  * to check each bit and carry out the specific action for that interrupt.
  *
+ * Inputs: NONE (interrupt)
+ *
+ * Outputs: Global variables used as flags to switch between fast time and real time
  */
 void PORT1_IRQHandler(void)
 {
@@ -872,6 +898,10 @@ void PORT1_IRQHandler(void)
  *
  * The purpose of this function is to initialize pins for the LCD screen
  * and LED's used in alarm clock
+ *
+ * Inputs: NONE
+ *
+ * Output: Pins set up for LCD and LED's
  */
 void Initialize_Pins(void)
 {
@@ -889,16 +919,6 @@ void Initialize_Pins(void)
     P2->SEL1 &= ~(BIT4 | BIT5); //set as Timer A
     P2->DIR |= (BIT4 | BIT5); //set as output
     P2->OUT &= ~(BIT4 | BIT5);
-    //initializes P2.4 to be used for Timer A for Blue LED
-    P2->SEL0 |= BIT4; //set as Timer A
-    P2->SEL1 &= ~(BIT4); //set as Timer A
-    P2->DIR |= BIT4; //set as output
-    P2->OUT &= ~(BIT4);
-    //initializes P2.5 to be used for Timer A for Green LED
-    P2->SEL0 |= BIT5; //set as Timer A
-    P2->SEL1 &= ~(BIT5); //set as Timer A
-    P2->DIR |= BIT5; //set as output
-    P2->OUT &= ~(BIT5);
     //Set for PWM for backlight for LCD screen
     P2->SEL0 |= BIT6; //set as Timer A
     P2->SEL1 &= ~(BIT6); //set as Timer A
@@ -912,6 +932,10 @@ void Initialize_Pins(void)
  * initialization sequence outlined in Figure 4 of the prelab
  *
  * From figure 4 given in prelab
+ *
+ * Inputs: NONE
+ *
+ * Outputs: LCD initialized
  */
 void Initialize_LCD(void)
 {
@@ -943,6 +967,10 @@ void Initialize_LCD(void)
  * can be pushed to pins
  *
  * From flowchart (figure 6) given in prelab
+ *
+ * Inputs: NONE
+ *
+ * Outputs: Enable pin is pulsed to send bits to pins
  */
 void PulseEnablePin(void)
 {
@@ -960,6 +988,10 @@ void PulseEnablePin(void)
  * onto DB4-DB7
  *
  * From flowchart (figure 5) given in prelab
+ *
+ * Inputs: 'nibble' variable - 4 bits of data
+ *
+ * Outputs: 4 bits are pushed to pins using PulseEnablePin() function
  */
 void pushNibble(uint8_t nibble)
 {
@@ -977,6 +1009,10 @@ void pushNibble(uint8_t nibble)
  * onto DB4-DB7 using pushNibble()
  *
  * From flowchart (figure 5) given in prelab
+ *
+ * Inputs: 'byte' variable - 8 bits of data
+ *
+ * Outputs: 8 bits are pushed onto pins, 4 at a time using pushNibble() function
  */
 void pushByte(uint8_t byte)
 {
@@ -994,6 +1030,10 @@ void pushByte(uint8_t byte)
  *
  * The purpose of this function is to write one byte of command using
  * the pushByte function with command parameter
+ *
+ * Inputs: 'command' variable, used to give command to LCD
+ *
+ * Outputs: 'command' sent to pushByte() function
  */
 void commandWrite(uint8_t command)
 {
@@ -1005,6 +1045,10 @@ void commandWrite(uint8_t command)
  *
  * The purpose of this function is to write one byte of data using
  * the pushByte function with data parameter
+ *
+ * Inputs: 'data' variable, used to give data to be printed to LCD screen
+ *
+ * Outputs: 'data' sent to pushByte() function
  */
 void dataWrite(uint8_t data)
 {
@@ -1015,6 +1059,10 @@ void dataWrite(uint8_t data)
  * void delay_micro(unsigned microsec)
  *
  * The purpose of this function is to delay the desired number of microseconds
+ *
+ * Input: 'microsec' variable containing desired number of microseconds to delay
+ *
+ * Output: delay occurs for desired number of microseconds
  */
 void delay_micro(unsigned microsec)
 {
@@ -1026,6 +1074,10 @@ void delay_micro(unsigned microsec)
  * void delay_ms(unsigned ms)
  *
  * The purpose of this function is to delay the desired number of milliseconds
+ *
+ * Input: 'ms' variable containing desired number of milliseconds to delay
+ *
+ * Output: delay occurs for desired number of milliseconds
  */
 void delay_ms(unsigned ms)
 {
@@ -1038,23 +1090,31 @@ void delay_ms(unsigned ms)
  *
  * The purpose of this function is to configure the Real Time Clock using
  * global variables 'hr1', 'min1', 'sec1', 'hr_alarm', 'min_alarm'.
+ *
+ * Inputs: Global variables 'hr1', 'min1', 'sec1', 'hr_alarm', and 'min_alarm'
+ *
+ * Outputs: RTC is initialized to desired time and alarm time
  */
 void configRTC(void)
 {
-    RTC_C->CTL0     =   0xA500;             //Write Code, IE on RTC Ready
-    RTC_C->CTL13    =   0x0000;
+    RTC_C->CTL0     =   0xA500;             //RTC key: A5
+    RTC_C->CTL13    =   0x0000;             //RTC clock enabled, BCLK
     RTC_C->TIM0     = min1<<8 | sec1;       //sets minutes,seconds
     RTC_C->TIM1     = 2<<8 | hr1;           //sets DOW, hour
-    RTC_C->PS1CTL   = 0b11010;
-    RTC_C->AMINHR   = hr_alarm<<8 | min_alarm | BIT(15) | BIT(7); //sets alarm
+    RTC_C->PS1CTL   = 0b11010;              //128 divider, interrupt enabled, timer interrupt flag initialized as 0
+    RTC_C->AMINHR   = hr_alarm<<8 | min_alarm | BIT(15) | BIT(7); //sets alarm time, enables alarm
     RTC_C->ADOWDAY = 0;
-    RTC_C->CTL0     = ((0xA500) | BIT5);
+    RTC_C->CTL0     = ((0xA500) | BIT5);    //RTC key: A5, RTC enabled
 }
 /*
  * void printRTC(void)
  *
  * The purpose of this function is to print the current time
  * to the LCD screen.
+ *
+ * Inputs: Global variables from structure 'now.hour', 'now.min', and 'now.sec'
+ *
+ * Output: Current time printed to LCD screen
  */
 void printRTC(void)
 {
@@ -1140,6 +1200,10 @@ void printRTC(void)
  *
  * The purpose of this function is to print the time that is currently
  * being set to LCD screen using global variables.
+ *
+ * Inputs: Global variables 'hr1', 'min1', and 'sec1'
+ *
+ * Outputs: Set time is printed to LCD screen
  */
 void printRTC_SetTime(void)
 {
@@ -1230,6 +1294,11 @@ void printRTC_SetTime(void)
  *
  * This function is the interrupt handler for the RTC. The purpose of this function is to
  * check which interrupt is occurring and complete the action for that specific interrupt.
+ *
+ * Inputs: Global variables used as flags to determine state of alarm
+ *
+ * Outputs: If alarm interrupt - Alarm enabled
+ *          If time update interrupt - current time is updated on LCD screen
  */
 void RTC_C_IRQHandler(void)
 {
@@ -1239,7 +1308,7 @@ void RTC_C_IRQHandler(void)
         flag_alarm_no_snooze = 1;
         flag_first_alarm = 1;
         TimerA_Init_LCD();          //Sets LCD screen to full brightness
-        RTC_C->CTL0 = 0xA500;
+        RTC_C->CTL0 = 0xA500;       //RTC key: A5
     }
     if(RTC_C->PS1CTL & BIT0)        //If one second has passed and time to update clock
     {
@@ -1282,19 +1351,27 @@ void RTC_C_IRQHandler(void)
  * void SysTickInit(void)
  *
  * The purpose of this function is to initialize the SysTick timer
+ *
+ * Inputs: NONE
+ *
+ * Outputs: SysTick timer initialized
  */
 void SysTickInit(void)
 {
-    SysTick->CTRL       =   0;
+    SysTick->CTRL       =   0;                          //Disables alarm
     SysTick->LOAD       =   3000000;                    //Set interval for interrupt to occur at
     SysTick->VAL        =   0;                          //Reset value to zero
-    SysTick->CTRL       =   0b101;                      //Set CLK, Set IE, Set Run
+    SysTick->CTRL       =   0b101;                      //Set CLK, disable interrupt, Set Run
 }
 /*
  * void conversion(void)
  *
  * The purpose of this function is to complete the conversion
  * for the analog input from the temperature sensor.
+ *
+ * Inputs: ADC14->MEM[0] value from ADC
+ *
+ * Outputs: Global variable 'temp_F' current temperature in Farenheit, value printed to LCD screen
  */
 void conversion(void)
 {
@@ -1311,6 +1388,10 @@ void conversion(void)
  *
  * The purpose of this function is to print the current temperature value
  * to the LCD screen.
+ *
+ * Inputs: Global variable 'temp_f', current temperature in Farenheit
+ *
+ * Outputs: Current temperature printed to LCD screen
  */
 void Print_Temp(void)
 {
@@ -1331,6 +1412,10 @@ void Print_Temp(void)
  *
  * The purpose of this function is to set up the ADC14 to run in single
  * measurement mode and to interrupt upon conversion.
+ *
+ * Inputs: NONE
+ *
+ * Outputs: ADC14 initialized for temperature sensor
  */
 void ADC14init(void)
 {
@@ -1356,6 +1441,10 @@ void ADC14init(void)
  *
  * The purpose of this function is to set up the ADC14 for the LCD backlight to run in single
  * measurement mode and to interrupt upon conversion.
+ *
+ * Inputs: NONE
+ *
+ * Outputs: ADC14 initialized for potentiometer to be used for LCD backlight
  */
 void ADC14init_LCD(void)
 {
@@ -1382,15 +1471,16 @@ void ADC14init_LCD(void)
  *
  * This is the interrupt handler for ADC14. The purpose of this function is to
  * begin the conversion when the interrupt occurs.
+ *
+ * Inputs: NONE
+ *
+ * Outputs: Temperature sensor: conversion() function called
+ *          LCD backlight: conversion_lcd() function called
  */
 void ADC14_IRQHandler(void)
 {
     if(ADC14->IFGR0 & BIT0)                             // Table 20-14. ADC14IFGR0 Register Description of Reference Manual says interrupt flag will be at BIT0 for ADC14MEM0
     {
-        // At 3MHz, 525 Hz is 3000000/525=5714
-        // At 3MHz, 5000 Hz is 3000000/5000=600
-        // An ADC value of 0 should result in CCR[0] set to 600
-        // An ADC value of 16535 (2^14 for 14 bit ADC) should result in CCR[0] set to 5714
         if(flag_LCD == 1)
         {
             conversion_lcd();                       //Conversion for LCD backlight
@@ -1410,6 +1500,10 @@ void ADC14_IRQHandler(void)
  * The purpose of this function is to complete the conversion
  * for the analog input from the potentiometer to a voltage
  * value to be used to set the PWM for the LCD backlight.
+ *
+ * Inputs: ADC14->MEM[0] value from ADC
+ *
+ * Outputs: Global variable 'nADC_lcd' voltage set
  */
 void conversion_lcd(void)
 {
@@ -1422,6 +1516,10 @@ void conversion_lcd(void)
  * void Alarm_Status(void)
  *
  * The purpose of this function is to print the current alarm status to the LCD screen.
+ *
+ * Inputs: Global variables used as flags
+ *
+ * Outputs: Current alarm status printed to LCD screen
  */
 void Alarm_Status(void)
 {
@@ -1470,7 +1568,11 @@ void Alarm_Status(void)
 /*
  * void SetupTimer32s()
  *
- * The purpose of this function is to setup and initialize Timer32.
+ * The purpose of this function is to setup and initialize Timer32 and TimerA for speaker.
+ *
+ * Inputs: NONE
+ *
+ * Outputs: Timer32 and TimerA initialized for speaker
  */
 void SetupTimer32s()
 {
@@ -1478,18 +1580,22 @@ void SetupTimer32s()
     NVIC_EnableIRQ(T32_INT2_IRQn);                  //Enable Timer32_2 interrupt.  Look at msp.h if you want to see what all these are called.
     TIMER32_2->LOAD = 3000000 - 1;                  //Set to a count down of 1 second on 3 MHz clock
     TIMER_A2->CCR[0] = 0;                           // Turn off timerA to start
-    TIMER_A2->CCTL[3] = 0b0000000011100100;         // Setup Timer A2_3
+    TIMER_A2->CCTL[3] = 0b0000000011100100;         // No capture, Reset/Set, No interrupt, Output high
     TIMER_A2->CCR[3] = 0;                           // Turn off timerA to start
-    TIMER_A2->CTL = 0b0000001000010100;             // Count Up mode using SMCLK, Clears, Clear Interrupt Flag
+    TIMER_A2->CTL = 0b0000001000010100;             // SMCLK, Divider of 1, Up mode, Clears, No interrupt
     P6->SEL0 |= BIT6;                               // Setup the P2.6 to be an output for the alarm.
     P6->SEL1 &= ~BIT6;
     P6->DIR |= BIT6;
 }
 /*
- * void SetupTimer32s()
+ * void T32_INT2_IRQHandler()
  *
  * This is the interrupt handler for Timer32. The purpose of this function is to cause the alarm to sound
  * when the alarm is enabled and the alarm time is equal to the current time.
+ *
+ * Inputs: NONE (interrupt)
+ *
+ * Outputs: Causes alarm to sound
  */
 void T32_INT2_IRQHandler()
 {
@@ -1522,6 +1628,10 @@ void T32_INT2_IRQHandler()
  * void TimerA_Init_BLUE(void)
  *
  * The purpose of this function is to initialize the TimerA used for the blue LED wake up light.
+ *
+ * Inputs: Global variables 'now.min' and 'now.sec'
+ *
+ * Outputs: Controls brightness of blue LED
  */
 void TimerA_Init_BLUE(void)
 {
@@ -1533,8 +1643,8 @@ void TimerA_Init_BLUE(void)
     {
     TIMER_A0->CCR[0] = 999;                     //Sets period of TimerA
     TIMER_A0->CCR[1] = blue_dutycycle1;         //Sets duty cycle
-    TIMER_A0->CCTL[1] = 0b0000000011100000;
-    TIMER_A0->CTL = 0b0000001001010100;
+    TIMER_A0->CCTL[1] = 0b0000000011100000;     // No capture, Reset/Set, No interrupt, Output high
+    TIMER_A0->CTL = 0b0000001001010100;         // SMCLK, Divider of 1, Up mode, Clears, No interrupt
     }
     else
     {
@@ -1545,6 +1655,10 @@ void TimerA_Init_BLUE(void)
  * void TimerA_Init_GREEN(void)
  *
  * The purpose of this function is to initialize the TimerA used for the green LED wake up light.
+ *
+ * Inputs: Global variables 'now.min' and 'now.sec'
+ *
+ * Outputs: Controls brightness of green LED
  */
 void TimerA_Init_GREEN(void)
 {
@@ -1556,8 +1670,8 @@ void TimerA_Init_GREEN(void)
     {
     TIMER_A0->CCR[0] = 999;                     //Sets period of TimerA
     TIMER_A0->CCR[2] = green_dutycycle1;        //Sets duty cycle
-    TIMER_A0->CCTL[2] = 0b0000000011100000;
-    TIMER_A0->CTL = 0b0000001001010100;
+    TIMER_A0->CCTL[2] = 0b0000000011100000;     // No capture, Reset/Set, No interrupt, Output high
+    TIMER_A0->CTL = 0b0000001001010100;         // SMCLK, Divider of 1, Up mode, Clears, No interrupt
     }
     else
     {
@@ -1569,6 +1683,10 @@ void TimerA_Init_GREEN(void)
  *
  * The purpose of this function is to initialize the TimerA used for PWM to control
  * the brightness of the backlight of the LCD screen.
+ *
+ * Inputs: Global variable 'nADC_lcd' used to set duty cycle
+ *
+ * Outputs: Controls brightness of LCD backlight
  */
 void TimerA_Init_LCD(void)
 {
@@ -1586,8 +1704,8 @@ void TimerA_Init_LCD(void)
         {
         TIMER_A0->CCR[0] = 999;                       //Sets period of TimerA
         TIMER_A0->CCR[3] = LCD_dutycycle1;            //Sets duty cycle
-        TIMER_A0->CCTL[3] = 0b0000000011100000;
-        TIMER_A0->CTL = 0b0000001001010100;
+        TIMER_A0->CCTL[3] = 0b0000000011100000;     // No capture, Reset/Set, No interrupt, Output high
+        TIMER_A0->CTL = 0b0000001001010100;         // SMCLK, Divider of 1, Up mode, Clears, No interrupt
         }
         else
         {
@@ -1601,6 +1719,11 @@ void TimerA_Init_LCD(void)
 * This is the interrupt handler for serial communication on EUSCIA0.
 * The purpose of this function is to store the data in the RXBUF into the INPUT_BUFFER global character
 * array for reading in the main application
+*
+* Inputs: NONE (interrupt)
+*
+* Outputs: Data stored in the global INPUT_BUFFER. storage_location
+* in the INPUT_BUFFER updated.
 */
 void EUSCIA0_IRQHandler(void)
 {
@@ -1619,6 +1742,11 @@ if (EUSCI_A0->IFG & BIT0)                               // Interrupt on the rece
 * The purpose of this function is to read in an input written to the serial port
 * and save it in a character string. It also updates the global variables of locations in the
 * INPUT_BUFFER that have been already read.
+*
+* Inputs: Pointer to a string that will have information stored in it 'char *string'
+*
+* Outputs: Places the serial data in the string that was passedto it. Updates the global
+* variables of locations in the INPUT_BUFFER that have been already read.
 */
 void readInput(char *string)
 {
@@ -1642,6 +1770,10 @@ string[i-1] = '\0';                             // Replace the \n with a \0 to e
 *
 * The purpose of this function is to send a string to the serial
 * port to be displayed on the console.
+*
+* Inputs: Pointer to a string that has a string to send to the serial. 'char *string'
+*
+* Outputs: Places the data on the serial output.
 */
 void writeOutput(char *string)
 {
@@ -1658,6 +1790,10 @@ while(string[i] != '\0')
 * The purpose of this function is to Set up the serial port EUSCI_A0 as 9600 8N1 (8 bits, no parity,
 * one stop bit.) This enables the interrupt so that received data will
 * results in an interrupt.
+*
+* Inputs: NONE
+*
+* Outputs: NONE
 */
 void setupSerial()
 {
